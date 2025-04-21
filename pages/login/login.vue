@@ -89,14 +89,14 @@ export default {
               // 根据用户角色跳转到不同页面
               if (userInfo.role === 'doctor') {
                 uni.switchTab({
-                  url: '/pages/doctor/task-list/task-list',
+                  url: '/pages/common/task-pool',
                   fail: (err) => {
                   console.error('医生跳转失败:', err);
                 }
                 });
               } else if (userInfo.role === 'transporter') {
                 uni.switchTab({
-                  url: '/pages/transporter/task-pool/task-pool',
+                  url: '/pages/common/task-pool',
                   fail: (err) => {
                   console.error('运送员跳转失败:', err);
                 }

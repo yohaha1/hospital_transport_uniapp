@@ -1,6 +1,5 @@
+
 <script>
-import { getAccessibleTabBar } from '@/utils/auth'
-import { setupRouterInterceptor } from '@/utils/permission'
 
 export default {
 	onLaunch: function() {
@@ -14,26 +13,10 @@ export default {
 			return
 		}
 		
-		// 动态设置 tabBar
-		const tabBar = getAccessibleTabBar();
-		if (tabBar.length > 0) {
-			tabBar.forEach((item, index) => {
-			uni.setTabBarItem({
-				index,
-				text: item.text,
-				iconPath: item.iconPath,
-				selectedIconPath: item.selectedIconPath
-			});
-			});
-		}
-		
-		// 检查初始页面权限
-		setupRouterInterceptor()
 	},
 	onShow: function() {
 		console.log('App Show')
-		// 检查页面访问权限
-		setupRouterInterceptor()
+
 	},
 	onHide: function() {
 		console.log('App Hide')

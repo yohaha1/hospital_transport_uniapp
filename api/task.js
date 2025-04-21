@@ -12,22 +12,38 @@ export default {
     return request.post('/task/create', formData);
   },
 
-  // 获取待接单任务
-  getPendingTasks() {
-    return request.get('/task/search/pending');
+  // 根据状体获取任务
+  getTasksByStatus(status) {
+    return request.get('/task/searchByStatus', {
+      data: { 
+        status: status,
+      }
+    });
   },
-  
-  //获取部门历史记录
-  getDepartmentTasks(departmentId,params){
-    return request.get(`/records/department/${departmentId}`,{
-      params: {
+
+  // 获取部门任务历史记录
+  getDepartmentTasks(departmentId, params) {
+    const query = {};
+    if (params.status && params.status !== 'ALL') query.status = params.status;
+    if (params.startDate) query.startDate = params.startDate;
+    if (params.endDate) query.endDate = params.endDate;
+    return request.get(`/records/department/${departmentId}`, {
+      data: query
+    });
+  },
+
+  // 获取运送员任务记录
+  getTransporterTaskRecords(transporterId, params) {
+	  console.log("tse111111111111"+transporterId,params);
+    return request.get(`/records/transporter/${transporterId}`, {
+      data: { 
         status: params.status,
         startDate: params.startDate,
         endDate: params.endDate
       }
-    })
+    });
   },
-
+  
   // 接受任务
   acceptTask(taskId, transporterId) {
     return request.post(`/task/accept/${taskId}`, {
@@ -56,16 +72,6 @@ export default {
     return request.post(`/task/handover/${taskId}`, formData);
   },
 
-  // 获取运送员任务记录
-  getTransporterTaskRecords(transporterId, params) {
-    return request.get(`/records/transporter/${transporterId}`, {
-      params: {
-        type: params.type,
-        startDate: params.startDate,
-        endDate: params.endDate
-      }
-    });
-  },
 
   // 获取任务节点
   getTaskNodes(taskId) {

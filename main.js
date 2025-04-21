@@ -1,3 +1,4 @@
+import tabBar from '@/components/tabbar.vue'
 import App from './App'
 
 // #ifndef VUE3
@@ -15,6 +16,7 @@ app.$mount()
 import { createSSRApp } from 'vue'
 export function createApp() {
   const app = createSSRApp(App)
+  app.component('tabBar', tabBar); // 注册 tabBar 组件
   return {
     app
   }
