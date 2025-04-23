@@ -4,123 +4,69 @@
       v-for="(item, index) in list" 
       :key="index" 
       class="tab-item" 
-      :class="{active: currentIndex === index}"
+      :class="{active: selectedIndex === index}"
       @click="switchTab(item, index)"
     >
       <uni-icons 
-        :type="currentIndex === index ? item.selectedIcon : item.icon" 
-        :color="currentIndex === index ? selectedColor : color" 
+        :type="item.icon" 
+        :color="selectedIndex === index ? selectedColor : color" 
         size="28"
       />
-      <view 
-        class="tab_text"
-      >
+      <view class="tab_text">
         {{ item.text }}
       </view>
-      <view v-if="currentIndex === index" class="tab-underline"></view>
+      <view v-if="selectedIndex === index" class="tab-underline"></view>
     </view>
   </view>
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
-import {onShow} from '@dcloudio/uni-app'
+import { ref, onMounted } from 'vue'
 
-import '@/uni_modules/uni-icons/components/uni-icons/uni-icons.vue'
-
-let color = ref('#666666')
-let selectedColor = ref('#007AFF')
-let list = ref([])
-let currentIndex = ref(0)
-
-// 接收父组件传入的 selectedIndex
 const props = defineProps({
   selectedIndex: {
     type: Number,
     default: 0
   }
 })
-
-onMounted(() => {
-  setTabList();
-  // 初始高亮
-  currentIndex.value = props.selectedIndex;
-})
-
-onShow(() => {
-  setTabList();
-  // 页面切换后，自动根据selectedIndex高亮
-  currentIndex.value = props.selectedIndex;
-})
-
-// 监听父级参数变化，自动同步高亮
-watch(() => props.selectedIndex, (val) => {
-  currentIndex.value = val
-})
+let color = ref('#666666')
+let selectedColor = ref('#007AFF')
+let list = ref([])
 
 function setTabList() {
   const userInfo = uni.getStorageSync('userInfo');
   const role = userInfo?.role || '';
   if (role === 'doctor') {
     list.value = [
-      {
-        pagePath: '/pages/common/task-pool',
-        icon: 'home',
-        selectedIcon: 'home-filled',
-        text: '任务大厅'
-      },
-      {
-        pagePath: '/pages/doctor/task-list',
-        icon: 'list',
-        selectedIcon: 'list-filled',
-        text: '任务列表'
-      },
-      {
-        pagePath: '/pages/common/user',
-        icon: 'person',
-        selectedIcon: 'person-filled',
-        text: '我的'
-      }
+      { pagePath: '/pages/common/task-pool', icon: 'home', text: '任务大厅' },
+      { pagePath: '/pages/doctor/task-list', icon: 'list', text: '任务列表' },
+      { pagePath: '/pages/common/user', icon: 'person', text: '我的' }
     ];
   } else if (role === 'transporter') {
     list.value = [
-      {
-        pagePath: '/pages/common/task-pool',
-        icon: 'home',
-        selectedIcon: 'home-filled',
-        text: '任务大厅'
-      },
-      {
-        pagePath: '/pages/transporter/active-task',
-        icon: 'clock',
-        selectedIcon: 'clock-filled',
-        text: '进行中'
-      },
-      {
-        pagePath: '/pages/transporter/history-task',
-        icon: 'history',
-        selectedIcon: 'history-filled',
-        text: '历史任务'
-      },
-      {
-        pagePath: '/pages/common/user',
-        icon: 'person',
-        selectedIcon: 'person-filled',
-        text: '我的'
-      }
+      { pagePath: '/pages/common/task-pool', icon: 'home', text: '任务大厅' },
+      { pagePath: '/pages/transporter/active-task', icon: 'navigate', text: '进行中' },
+      { pagePath: '/pages/transporter/history-task', icon: 'list', text: '历史任务' },
+      { pagePath: '/pages/common/user', icon: 'person', text: '我的' }
+    ];
+  } else {
+    list.value = [
+      { pagePath: '/pages/common/task-pool', icon: 'home', text: '任务大厅' },
+      { pagePath: '/pages/common/user', icon: 'person', text: '我的' }
     ];
   }
 }
 
-const switchTab = (item, index) => {
-  if (currentIndex.value === index) return;
-  currentIndex.value = index;
-  uni.switchTab({
-    url: item.pagePath
-  });
-};
-</script>
+onMounted(() => {
+  setTabList()
+})
 
+const switchTab = (item, index) => {
+  // 不需要设置 local currentIndex，直接切页面，页面会自动计算 selectedIndex
+  if (props.selectedIndex === index) return;
+  uni.switchTab({ url: item.pagePath });
+}
+</script>
 <style scoped>
 .tab {
   display: flex;
@@ -145,5 +91,15 @@ const switchTab = (item, index) => {
   font-size: 26rpx;
   margin-top: 5rpx;
   font-weight: 500;
+}
+.tab-underline {
+  width: 40%;
+  height: 4rpx;
+  background: #007AFF;
+  border-radius: 2rpx;
+  margin: 4rpx auto 0 auto;
+}
+.active .tab_text {
+  color: #007AFF;
 }
 </style>

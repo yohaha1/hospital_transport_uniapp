@@ -13,14 +13,12 @@
               {{ getPriorityText(currentTask.priority) }}
             </text>
           </view>
-          
           <view class="status-info">
             <text class="status-text">{{ getStatusText(currentTask.status) }}</text>
             <text class="time-text">{{ formatTime(currentTask.startTime) }}</text>
           </view>
         </view>
       </view>
-      
       <!-- 节点进度 -->
       <view class="progress-section">
         <view class="section-title">运送进度</view>
@@ -44,7 +42,6 @@
           </view>
         </view>
       </view>
-      
       <!-- 操作区域 -->
       <view class="action-section">
         <template v-if="currentTask.status === 'ACCEPTED'">
@@ -52,7 +49,6 @@
             开始运送
           </button>
         </template>
-        
         <template v-if="currentTask.status === 'PROCESSING'">
           <button class="action-btn primary" @click="handleHandover">
             交接确认
@@ -60,7 +56,6 @@
         </template>
       </view>
     </template>
-    
     <!-- 空状态 -->
     <view class="empty-state" v-else>
       <image src="/static/images/empty.png" mode="aspectFit"></image>
@@ -69,7 +64,6 @@
         去接单
       </button>
     </view>
-    
     <!-- 扫码确认弹窗 -->
     <uni-popup ref="qrCodePopup" type="center">
       <view class="qr-popup">
@@ -77,7 +71,6 @@
           <text class="title">扫码确认</text>
           <text class="close-btn" @click="closeQrCodePopup">×</text>
         </view>
-        
         <view class="popup-content">
           <view class="camera-box">
             <camera 
@@ -90,7 +83,6 @@
         </view>
       </view>
     </uni-popup>
-    
     <!-- 拍照确认弹窗 -->
     <uni-popup ref="photoPopup" type="center">
       <view class="photo-popup">
@@ -98,7 +90,6 @@
           <text class="title">拍照确认</text>
           <text class="close-btn" @click="closePhotoPopup">×</text>
         </view>
-        
         <view class="popup-content">
           <view class="camera-box">
             <camera 
@@ -113,7 +104,6 @@
               mode="aspectFit"
             ></image>
           </view>
-          
           <view class="btn-group">
             <button 
               class="photo-btn" 
@@ -134,222 +124,214 @@
         </view>
       </view>
     </uni-popup>
+  <tabBar :selectedIndex = "1"/>
   </view>
+  
 </template>
 
-<script>
-import taskApi from '@/api/task.js';
+<script setup>
+import { ref, onMounted } from 'vue'
+import taskApi from '@/api/task.js'
 
-export default {
-  data() {
-    return {
-      currentTask: null,
-      tempPhotoPath: '',
-      qrCodeData: '',
-      actionType: '' // 'start' or 'handover'
-    };
-  },
-  
-  onLoad() {
-    this.loadCurrentTask();
-  },
-  
-  methods: {
-    // 加载当前任务
-    async loadCurrentTask() {
-      try {
-        const userInfo = uni.getStorageSync('userInfo');
-        // 这里应该调用后端接口获取运送员当前的任务
-        // 临时使用本地数据演示
-        this.currentTask = {
-          id: 1,
-          itemName: '药品样本',
-          itemType: '药品',
-          priority: 'urgent',
-          status: 'ACCEPTED',
-          startTime: new Date().getTime(),
-          nodes: [
-            {
-              department: '内科',
-              expectedTime: '10:00',
-              status: 'COMPLETED'
-            },
-            {
-              department: '检验科',
-              expectedTime: '10:30',
-              status: 'PROCESSING'
-            },
-            {
-              department: '药房',
-              expectedTime: '11:00',
-              status: 'PENDING'
-            }
-          ]
-        };
-      } catch (error) {
-        uni.showToast({
-          title: error.message || '加载失败',
-          icon: 'none'
-        });
-      }
-    },
-    
-    // 开始任务
-    async handleStartTask() {
-      this.actionType = 'start';
-      this.openQrCodePopup();
-    },
-    
-    // 任务交接
-    async handleHandover() {
-      this.actionType = 'handover';
-      this.openQrCodePopup();
-    },
-    
-    // 处理扫码结果
-    async handleScanCode(e) {
-      this.qrCodeData = e.detail.result;
-      this.closeQrCodePopup();
-      this.openPhotoPopup();
-    },
-    
-    // 拍照处理
-    takePhoto() {
-      const camera = this.$scope.selectComponent('#camera');
-      camera.takePhoto({
-        quality: 'normal',
-        success: (res) => {
-          this.tempPhotoPath = res.tempImagePath;
+const currentTask = ref(null)
+const tempPhotoPath = ref('')
+const qrCodeData = ref('')
+const actionType = ref('') // 'start' or 'handover'
+
+const qrCodePopup = ref(null)
+const photoPopup = ref(null)
+
+// 加载当前任务
+const loadCurrentTask = async () => {
+  try {
+    const userInfo = uni.getStorageSync('userInfo')
+    // 演示数据，实际请用 await taskApi.getActiveTask(userInfo.id)
+    currentTask.value = {
+      id: 1,
+      itemName: '药品样本',
+      itemType: '药品',
+      priority: 'urgent',
+      status: 'ACCEPTED',
+      startTime: new Date().getTime(),
+      nodes: [
+        {
+          department: '内科',
+          expectedTime: '10:00',
+          status: 'COMPLETED'
+        },
+        {
+          department: '检验科',
+          expectedTime: '10:30',
+          status: 'PROCESSING'
+        },
+        {
+          department: '药房',
+          expectedTime: '11:00',
+          status: 'PENDING'
         }
-      });
-    },
-    
-    retakePhoto() {
-      this.tempPhotoPath = '';
-    },
-    
-    // 确认照片并提交
-    async confirmPhoto() {
-      try {
-        const userInfo = uni.getStorageSync('userInfo');
-        
-        if (this.actionType === 'start') {
-          await taskApi.startTask(
-            this.currentTask.id,
-            userInfo.id,
-            this.tempPhotoPath,
-            this.qrCodeData
-          );
-        } else {
-          await taskApi.handOverTask(
-            this.currentTask.id,
-            userInfo.id,
-            this.currentTask.currentNode.departmentId,
-            this.tempPhotoPath,
-            this.qrCodeData
-          );
-        }
-        
-        uni.showToast({
-          title: this.actionType === 'start' ? '任务开始' : '交接成功',
-          icon: 'success'
-        });
-        
-        // 重新加载任务状态
-        this.loadCurrentTask();
-        
-        // 清理临时数据
-        this.tempPhotoPath = '';
-        this.qrCodeData = '';
-        this.closePhotoPopup();
-      } catch (error) {
-        uni.showToast({
-          title: error.message || '操作失败',
-          icon: 'none'
-        });
-      }
-    },
-    
-    // 弹窗控制
-    openQrCodePopup() {
-      this.$refs.qrCodePopup.open();
-    },
-    
-    closeQrCodePopup() {
-      this.$refs.qrCodePopup.close();
-    },
-    
-    openPhotoPopup() {
-      this.$refs.photoPopup.open();
-    },
-    
-    closePhotoPopup() {
-      this.$refs.photoPopup.close();
-      setTimeout(() => {
-        this.tempPhotoPath = '';
-      }, 200);
-    },
-    
-    // 页面导航
-    navigateToTaskPool() {
-      uni.switchTab({
-        url: '/pages/transporter/task-pool/task-pool'
-      });
-    },
-    
-    // 工具方法
-    getPriorityClass(priority) {
-      const classes = {
-        normal: 'priority-normal',
-        urgent: 'priority-urgent',
-        critical: 'priority-critical'
-      };
-      return classes[priority] || '';
-    },
-    
-    getPriorityText(priority) {
-      const texts = {
-        normal: '普通',
-        urgent: '紧急',
-        critical: '特急'
-      };
-      return texts[priority] || '';
-    },
-    
-    getStatusText(status) {
-      const texts = {
-        ACCEPTED: '待开始',
-        PROCESSING: '运送中',
-        COMPLETED: '已完成'
-      };
-      return texts[status] || '';
-    },
-    
-    getNodeStatusText(status) {
-      const texts = {
-        PENDING: '待到达',
-        PROCESSING: '进行中',
-        COMPLETED: '已完成'
-      };
-      return texts[status] || '';
-    },
-    
-    formatTime(timestamp) {
-      const date = new Date(timestamp);
-      return `${date.getMonth() + 1}月${date.getDate()}日 ${date.getHours()}:${date.getMinutes()}`;
+      ]
     }
+  } catch (error) {
+    uni.showToast({
+      title: error.message || '加载失败',
+      icon: 'none'
+    })
   }
-};
+}
+
+// 开始任务
+const handleStartTask = async () => {
+  actionType.value = 'start'
+  openQrCodePopup()
+}
+
+// 任务交接
+const handleHandover = async () => {
+  actionType.value = 'handover'
+  openQrCodePopup()
+}
+
+// 处理扫码结果
+const handleScanCode = async (e) => {
+  qrCodeData.value = e.detail.result
+  closeQrCodePopup()
+  openPhotoPopup()
+}
+
+// 拍照处理
+const takePhoto = () => {
+  // 兼容uni-app camera组件，需在真机环境下使用
+  // #ifdef MP-WEIXIN
+  const ctx = uni.createCameraContext()
+  ctx.takePhoto({
+    quality: 'normal',
+    success: (res) => {
+      tempPhotoPath.value = res.tempImagePath
+    }
+  })
+  // #endif
+}
+
+const retakePhoto = () => {
+  tempPhotoPath.value = ''
+}
+
+// 确认照片并提交
+const confirmPhoto = async () => {
+  try {
+    const userInfo = uni.getStorageSync('userInfo')
+    if (actionType.value === 'start') {
+      await taskApi.startTask(
+        currentTask.value.id,
+        userInfo.id,
+        tempPhotoPath.value,
+        qrCodeData.value
+      )
+    } else {
+      await taskApi.handOverTask(
+        currentTask.value.id,
+        userInfo.id,
+        (currentTask.value.currentNode && currentTask.value.currentNode.departmentId) || '',
+        tempPhotoPath.value,
+        qrCodeData.value
+      )
+    }
+    uni.showToast({
+      title: actionType.value === 'start' ? '任务开始' : '交接成功',
+      icon: 'success'
+    })
+    // 重新加载任务状态
+    loadCurrentTask()
+    // 清理临时数据
+    tempPhotoPath.value = ''
+    qrCodeData.value = ''
+    closePhotoPopup()
+  } catch (error) {
+    uni.showToast({
+      title: error.message || '操作失败',
+      icon: 'none'
+    })
+  }
+}
+
+// 弹窗控制
+const openQrCodePopup = () => {
+  qrCodePopup.value.open()
+}
+const closeQrCodePopup = () => {
+  qrCodePopup.value.close()
+}
+const openPhotoPopup = () => {
+  photoPopup.value.open()
+}
+const closePhotoPopup = () => {
+  photoPopup.value.close()
+  setTimeout(() => {
+    tempPhotoPath.value = ''
+  }, 200)
+}
+
+// 页面导航
+const navigateToTaskPool = () => {
+  uni.switchTab({
+    url: '/pages/transporter/task-pool/task-pool'
+  })
+}
+
+// 工具方法
+const getPriorityClass = (priority) => {
+  const classes = {
+    normal: 'priority-normal',
+    urgent: 'priority-urgent',
+    critical: 'priority-critical'
+  }
+  return classes[priority] || ''
+}
+const getPriorityText = (priority) => {
+  const texts = {
+    normal: '普通',
+    urgent: '紧急',
+    critical: '特急'
+  }
+  return texts[priority] || ''
+}
+const getStatusText = (status) => {
+  const texts = {
+    ACCEPTED: '待开始',
+    PROCESSING: '运送中',
+    COMPLETED: '已完成'
+  }
+  return texts[status] || ''
+}
+const getNodeStatusText = (status) => {
+  const texts = {
+    PENDING: '待到达',
+    PROCESSING: '进行中',
+    COMPLETED: '已完成'
+  }
+  return texts[status] || ''
+}
+const formatTime = (timestamp) => {
+  const date = new Date(timestamp)
+  const pad = n => n < 10 ? '0' + n : n
+  return `${date.getMonth() + 1}月${date.getDate()}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+onMounted(() => {
+  loadCurrentTask()
+})
 </script>
 
 <style lang="scss">
 .active-task {
   min-height: 100vh;
   background-color: #f8f8f8;
+  padding-bottom: 200rpx;
   padding: 30rpx;
   
   .status-section {
     margin-bottom: 30rpx;
+	
     
     .status-card {
       background-color: #fff;
@@ -554,22 +536,20 @@ export default {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: 100rpx;
     padding: 30rpx;
     background-color: #fff;
     box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.1);
-    
+    z-index: 10;
     .action-btn {
       width: 100%;
       height: 88rpx;
       line-height: 88rpx;
       border-radius: 44rpx;
       font-size: 32rpx;
-      
       &.primary {
         background-color: #007AFF;
         color: #fff;
-        
         &:active {
           opacity: 0.8;
         }

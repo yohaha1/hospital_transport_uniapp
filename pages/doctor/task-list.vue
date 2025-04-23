@@ -89,7 +89,7 @@
       <view class="empty-state" v-if="tasks.length === 0 && !isLoading">
         <image src="/static/images/empty.png" mode="aspectFit"></image>
         <text>暂无任务记录</text>
-        <button class="create-btn" @click="navigateToCreate">
+        <button class="create-btn" @click.stop="navigateToCreate">
           发起任务
         </button>
       </view>
@@ -179,223 +179,198 @@
     </uni-popup>
     
     <tabBar :selectedIndex="1" />
-    
-    <!-- 兼容：底部无任务英文提示（可选） -->
-    <view v-if="tasks.length === 0 && !isLoading" class="empty-state">
-      <text>No tasks available</text>
-      <button class="create-btn" @click="navigateToCreate">
-        Start a Task
-      </button>
-    </view>
   </view>
 </template>
-<script>
-import taskApi from '@/api/task.js';
 
-export default {
-  data() {
-    return {
-      // 状态筛选选项
-      statusFilters: [
-        { label: '全部', value: 'ALL' },
-        { label: '待接单', value: 'NEW' },
-        { label: '运送中', value: 'TRANSPORTING' },
-        { label: '已完成', value: 'DELIVERED' }
-      ],
-      currentStatus: 'ALL',
-	  startDate: '',
-	  endDate: '',      
-      
-      // 列表数据
-      tasks: [],
-      page: 1,
-      pageSize: 10,
-      isLoading: false,
-      noMore: false,
-      isRefreshing: false,
-      
-      // 当前选中的任务
-      currentTask: null
-    };
-  },
-  
-  onLoad() {
-    this.loadTasks();
-  },
-  
-  onShow() {
-  	uni.hideTabBar({
-  		animation:false
-  	})
-  },
-  
-  methods: {
-    // 加载任务列表
-    async loadTasks(refresh = false) {
-      if (refresh) {
-        this.page = 1;
-        this.noMore = false;
-      }
-      
-      if (this.isLoading || this.noMore) return;
-      
-      this.isLoading = true;
-      
-      try {
-        const userInfo = uni.getStorageSync('userInfo');
-        const params = {
-          status: this.currentStatus === 'ALL' ? null : this.currentStatus,
-          startDate: this.startDate,
-          endDate: this.endDate
-        };
-        
-        const res = await taskApi.getDepartmentTasks(userInfo.departmentid, params);
-        
-        if (refresh) {
-          this.tasks = res;
-        } else {
-          this.tasks = [...this.tasks, ...res];
-        }
-        
-        this.noMore = res.length < this.pageSize;
-        this.page++;
-      } catch (error) {
-        uni.showToast({
-          title: error.message || '加载失败',
-          icon: 'none'
-        });
-      } finally {
-        this.isLoading = false;
-        if (refresh) {
-          this.isRefreshing = false;
-        }
-      }
-    },
-	
-	// 新增：时间筛选事件
-	handleStartDateChange(e) {
-	  this.startDate = e.detail.value;
-	  this.loadTasks(true);
-	},
-	handleEndDateChange(e) {
-	  this.endDate = e.detail.value;
-	  this.loadTasks(true);
-	},
-    
-    // 状态筛选
-    handleFilterChange(status) {
-      if (this.currentStatus === status) return;
-      this.currentStatus = status;
-      this.loadTasks(true);
-    },
-    
-    // 下拉刷新
-    async onRefresh() {
-      this.isRefreshing = true;
-      await this.loadTasks(true);
-    },
-    
-    // 上拉加载更多
-    loadMore() {
-      this.loadTasks();
-    },
-    
-    // 显示任务详情
-    async showTaskDetail(task) {
-      try {
-        // 获取任务节点详情
-        const nodes = await taskApi.getTaskNodes(task.id);
-        this.currentTask = {
-          ...task,
-          nodes
-        };
-        this.$refs.taskDetailPopup.open();
-      } catch (error) {
-        uni.showToast({
-          title: error.message || '获取详情失败',
-          icon: 'none'
-        });
-      }
-    },
-    
-    // 关闭任务详情
-    closeTaskDetail() {
-      this.$refs.taskDetailPopup.close();
-      setTimeout(() => {
-        this.currentTask = null;
-      }, 200);
-    },
-    
-    // 页面导航
-    navigateToCreate() {
-      uni.navigateTo({
-        url: '/pages/nurse/create-task/create-task'
-      });
-    },
-    
-    // 预览图片
-    previewImage(url) {
-      uni.previewImage({
-        urls: [url],
-        current: url
-      });
-    },
-    
-    // 工具方法
-    getPriorityClass(priority) {
-      const classes = {
-        normal: 'priority-normal',
-        urgent: 'priority-urgent',
-        critical: 'priority-critical'
-      };
-      return classes[priority] || '';
-    },
-    
-    getPriorityText(priority) {
-      const texts = {
-        normal: '普通',
-        urgent: '紧急',
-        critical: '特急'
-      };
-      return texts[priority] || '';
-    },
-    
-    getStatusClass(status) {
-      const classes = {
-        PENDING: 'status-pending',
-        ACCEPTED: 'status-accepted',
-        PROCESSING: 'status-processing',
-        COMPLETED: 'status-completed'
-      };
-      return classes[status] || '';
-    },
-    
-    getStatusText(status) {
-      const texts = {
-        PENDING: '待接单',
-        ACCEPTED: '待开始',
-        PROCESSING: '运送中',
-        COMPLETED: '已完成'
-      };
-      return texts[status] || '';
-    },
-    
-    getNodeStatusText(status) {
-      const texts = {
-        PENDING: '待到达',
-        PROCESSING: '进行中',
-        COMPLETED: '已完成'
-      };
-      return texts[status] || '';
-    },
-    
-    formatTime(timestamp) {
-      const date = new Date(timestamp);
-      return `${date.getMonth() + 1}月${date.getDate()}日 ${date.getHours()}:${date.getMinutes()}`;
+<script setup>
+import { ref, reactive, onMounted } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import taskApi from '@/api/task.js'
+
+const statusFilters = [
+  { label: '全部', value: 'ALL' },
+  { label: '待接单', value: 'NEW' },
+  { label: '运送中', value: 'TRANSPORTING' },
+  { label: '已完成', value: 'DELIVERED' }
+]
+const currentStatus = ref('ALL')
+const startDate = ref('')
+const endDate = ref('')
+
+const tasks = ref([])
+const page = ref(1)
+const pageSize = ref(10)
+const isLoading = ref(false)
+const noMore = ref(false)
+const isRefreshing = ref(false)
+const currentTask = ref(null)
+const taskDetailPopup = ref(null)
+
+// 加载任务列表
+const loadTasks = async (refresh = false) => {
+  if (refresh) {
+    page.value = 1
+    noMore.value = false
+  }
+  if (isLoading.value || noMore.value) return
+
+  isLoading.value = true
+  try {
+    const userInfo = uni.getStorageSync('userInfo')
+    const params = {
+      status: currentStatus.value === 'ALL' ? null : currentStatus.value,
+      startDate: startDate.value,
+      endDate: endDate.value
+    }
+    const res = await taskApi.getDepartmentTasks(userInfo.departmentid, params)
+    if (refresh) {
+      tasks.value = res
+    } else {
+      tasks.value = [...tasks.value, ...res]
+    }
+    noMore.value = res.length < pageSize.value
+    page.value++
+  } catch (error) {
+    uni.showToast({
+      title: error.message || '加载失败',
+      icon: 'none'
+    })
+  } finally {
+    isLoading.value = false
+    if (refresh) {
+      isRefreshing.value = false
     }
   }
-};
+}
+
+// 新增：时间筛选事件
+const handleStartDateChange = e => {
+  startDate.value = e.detail.value
+  loadTasks(true)
+}
+const handleEndDateChange = e => {
+  endDate.value = e.detail.value
+  loadTasks(true)
+}
+
+// 状态筛选
+const handleFilterChange = status => {
+  if (currentStatus.value === status) return
+  currentStatus.value = status
+  loadTasks(true)
+}
+
+// 下拉刷新
+const onRefresh = async () => {
+  isRefreshing.value = true
+  await loadTasks(true)
+}
+
+// 上拉加载更多
+const loadMore = () => {
+  loadTasks()
+}
+
+// 显示任务详情
+const showTaskDetail = async (task) => {
+  try {
+    const nodes = await taskApi.getTaskNodes(task.id)
+    currentTask.value = {
+      ...task,
+      nodes
+    }
+    taskDetailPopup.value.open()
+  } catch (error) {
+    uni.showToast({
+      title: error.message || '获取详情失败',
+      icon: 'none'
+    })
+  }
+}
+
+// 关闭任务详情
+const closeTaskDetail = () => {
+  taskDetailPopup.value.close()
+  setTimeout(() => {
+    currentTask.value = null
+  }, 200)
+}
+
+// 页面导航
+const navigateToCreate = () => {
+  uni.navigateTo({
+    url: '/pages/nurse/create-task/create-task'
+  })
+}
+
+// 预览图片
+const previewImage = url => {
+  uni.previewImage({
+    urls: [url],
+    current: url
+  })
+}
+
+// 工具方法
+const getPriorityClass = priority => {
+  const classes = {
+    normal: 'priority-normal',
+    urgent: 'priority-urgent',
+    critical: 'priority-critical'
+  }
+  return classes[priority] || ''
+}
+const getPriorityText = priority => {
+  const texts = {
+    normal: '普通',
+    urgent: '紧急',
+    critical: '特急'
+  }
+  return texts[priority] || ''
+}
+const getStatusClass = status => {
+  const classes = {
+    PENDING: 'status-pending',
+    ACCEPTED: 'status-accepted',
+    PROCESSING: 'status-processing',
+    COMPLETED: 'status-completed'
+  }
+  return classes[status] || ''
+}
+const getStatusText = status => {
+  const texts = {
+    PENDING: '待接单',
+    ACCEPTED: '待开始',
+    PROCESSING: '运送中',
+    COMPLETED: '已完成'
+  }
+  return texts[status] || ''
+}
+const getNodeStatusText = status => {
+  const texts = {
+    PENDING: '待到达',
+    PROCESSING: '进行中',
+    COMPLETED: '已完成'
+  }
+  return texts[status] || ''
+}
+const formatTime = timestamp => {
+  const date = new Date(timestamp)
+  const pad = n => n < 10 ? '0' + n : n
+  return `${date.getMonth() + 1}月${date.getDate()}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+onMounted(() => {
+  loadTasks()
+})
+
+onShow(() => {
+  uni.hideTabBar({
+    animation: false
+  })
+})
 </script>
+
 
 <style lang="scss">
 .task-list {
@@ -406,6 +381,7 @@ export default {
     background-color: #fff;
     padding: 20rpx 0;
     position: fixed;
+	padding-top: 88rpx; 
     top: 0;
     left: 0;
     right: 0;

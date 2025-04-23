@@ -62,9 +62,6 @@
         "pagePath": "pages/doctor/task-list"
       },
       {
-        "pagePath": "pages/doctor/create-task"
-      },
-      {
         "pagePath": "pages/transporter/active-task"
       },
       {

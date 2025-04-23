@@ -31,104 +31,69 @@
   </view>
 </template>
 
-<script>
-import userApi from '@/api/user.js';
+<script setup>
+import { ref } from 'vue'
+import userApi from '@/api/user.js'
 
-export default {
-  data() {
-    return {
-      username: '',
-      password: '',
-      loading: false
-    };
-  },
-  
-  methods: {
-    async handleLogin() {
-      if (!this.username || !this.password) {
-        uni.showToast({
-          title: '请输入用户名和密码',
-          icon: 'none'
-        });
-        return;
-      }
-      
-      this.loading = true;
-      
-      try {
-        console.log('开始登录请求...');
-        const token = await userApi.login(this.username, this.password);
-        console.log('登录成功，获取到token:', token);
-        
-        if (token) {
-          // 保存token
-          uni.setStorageSync('token', token);
-          
-          // 解析token获取用户信息
-          const tokenParts = token.split('.');
-          if (tokenParts.length === 3) {
-            try {
-              const payload = JSON.parse(atob(tokenParts[1]));
-              // console.log('解析token payload:', payload);
-              
-              // 从 token 中获取用户基本信息
-              const basicUserInfo = {
-                id: payload.id,
-                username: payload.sub,
-                role: payload.role.replace('ROLE_', '') // 移除 ROLE_ 前缀
-              };
-              console.log('从token解析的用户基本信息:', basicUserInfo);
+const username = ref('')
+const password = ref('')
+const loading = ref(false)
 
-              // 根据 username 调用后端接口获取完整用户信息
-              const userInfo = await userApi.getByUsername(basicUserInfo.username);
-              console.log('获取完整用户信息:', userInfo);
-
-              // 将完整用户信息存储到本地
-              uni.setStorageSync('userInfo', userInfo);
-              
-              // 根据用户角色跳转到不同页面
-              if (userInfo.role === 'doctor') {
-                uni.switchTab({
-                  url: '/pages/common/task-pool',
-                  fail: (err) => {
-                  console.error('医生跳转失败:', err);
-                }
-                });
-              } else if (userInfo.role === 'transporter') {
-                uni.switchTab({
-                  url: '/pages/common/task-pool',
-                  fail: (err) => {
-                  console.error('运送员跳转失败:', err);
-                }
-                });
-              } else {
-                throw new Error('未知的用户角色');
-              }
-            } catch (e) {
-              console.error('解析token失败:', e);
-              throw new Error('登录失败：无法解析用户信息');
-            }
-          } else {
-            throw new Error('登录失败：无效的token格式');
-          }
-        } else {
-          throw new Error('登录失败：未获取到token');
-        }
-      } catch (error) {
-        console.error('登录错误：', error);
-        uni.showToast({
-          title: error.message || '登录失败',
-          icon: 'none',
-          duration: 2000
-        });
-      } finally {
-        this.loading = false;
-      }
+// 微信小程序兼容 Base64URL 解码 JWT payload
+function decodeJwtPayload(payload) {
+  let base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+  while (base64.length % 4) base64 += '='
+  try {
+    const bytes = wx.base64ToArrayBuffer(base64)
+    let str = ''
+    const uint8Arr = new Uint8Array(bytes)
+    for (let i = 0; i < uint8Arr.length; i++) {
+      str += String.fromCharCode(uint8Arr[i])
     }
+    return JSON.parse(decodeURIComponent(escape(str)))
+  } catch (e) {
+    return null
   }
-};
-</script>
+}
 
+const handleLogin = async () => {
+  if (!username.value || !password.value) {
+    uni.showToast({ title: '请输入用户名和密码', icon: 'none' })
+    return
+  }
+  loading.value = true
+  try {
+    const token = await userApi.login(username.value, password.value)
+    if (!token) throw new Error('登录失败：未获取到token')
+    uni.setStorageSync('token', token)
+    const tokenParts = token.split('.')
+    if (tokenParts.length === 3) {
+      const payload = decodeJwtPayload(tokenParts[1])
+      if (!payload) throw new Error('登录失败：无法解析用户信息')
+      const basicUserInfo = {
+        id: payload.id,
+        username: payload.sub,
+        role: (payload.role || '').replace('ROLE_', '')
+      }
+      const userInfo = await userApi.getByUsername(basicUserInfo.username)
+      uni.setStorageSync('userInfo', userInfo)
+	  console.log("获得用户信息：", userInfo)
+	  
+      if (userInfo.role === 'doctor' || userInfo.role === 'transporter') {
+        uni.switchTab({ url: '/pages/common/task-pool' })
+      } else {
+        throw new Error('未知的用户角色')
+      }
+    } else {
+      throw new Error('登录失败：无效的token格式')
+    }
+  } catch (error) {
+    uni.showToast({ title: error.message || '登录失败', icon: 'none' })
+  } finally {
+    loading.value = false
+  }
+}
+</script>
 
 <style lang="scss">
 .login-container {
@@ -197,4 +162,4 @@ export default {
     }
   }
 }
-</style> 
+</style>

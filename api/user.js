@@ -17,6 +17,7 @@ export default {
   getByUsername(username) {
     return request.get(`/user/getByUsername/${username}`);
   },
+  
 
   // 添加用户（管理员）
   addUser(user) {

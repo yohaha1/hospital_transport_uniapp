@@ -36,64 +36,66 @@
     </view>
   </view>
   
-  <tabBar :selectedIndex = "selectedTabIndex" />
-  
+  <tabBar :selectedIndex="selectedTabIndex" />
 </template>
 
-<script>
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 
-export default {
-  data() {
-    return {
-      userInfo: {}
-    }
-  },
-  computed: {
-    roleText() {
-      const role = this.userInfo.role
-      if (role === 'nurse') return '护士'
-      if (role === 'transporter') return '转运员'
-      return '未登录'
-    },
-    selectedTabIndex() {
-      return this.userInfo.role === 'doctor' ? 2 : 3
-    }
-  },
-  onShow() {
-    this.loadUserInfo()
-	uni.hideTabBar({
-		animation:false
-	})
-  },
-  
-  methods: {
-    loadUserInfo() {
-      const userInfo = uni.getStorageInfoSync('userInfo');
-      if (userInfo) {
-        this.userInfo = userInfo
-      }
-    },
-    navigateTo(url) {
-      uni.navigateTo({
-        url
-      })
-    },
-    handleLogout() {
-      uni.showModal({
-        title: '提示',
-        content: '确定要退出登录吗？',
-        success: (res) => {
-          if (res.confirm) {
-            uni.clearStorageSync('userInfo');
-            uni.reLaunch({
-              url: '/pages/login/login'
-            })
-          }
-        }
-      })
-    }
-  }
+// 响应式用户信息
+const userInfo = ref({})
+
+// 角色文本
+const roleText = computed(() => {
+  const role = userInfo.value.role
+  if (role === 'nurse') return '护士'
+  if (role === 'transporter') return '转运员'
+  if (role === 'doctor') return '医生'
+  return '未登录'
+})
+
+// 选中的Tab索引（和tabBar的顺序保持一致）
+const selectedTabIndex = computed(() => {
+  const role = userInfo.value.role
+  if (role === 'doctor') return 2 // 我的在第3个
+  if (role === 'transporter') return 3 // 我的在第4个
+  return 1 // 其它情况
+})
+
+function loadUserInfo() {
+  // 注意：应为 getStorageSync（不是 getStorageInfoSync）
+  const info = uni.getStorageSync('userInfo')
+  if (info) userInfo.value = info
 }
+
+function navigateTo(url) {
+  uni.navigateTo({ url })
+}
+
+function handleLogout() {
+  uni.showModal({
+    title: '提示',
+    content: '确定要退出登录吗？',
+    success: (res) => {
+      if (res.confirm) {
+        uni.clearStorageSync('userInfo')
+        uni.reLaunch({ url: '/pages/login/login' })
+      }
+    }
+  })
+}
+
+// 页面展示时加载用户信息并隐藏原生TabBar
+onShow(() => {
+  loadUserInfo()
+  uni.hideTabBar({ animation: false })
+})
+
+// 页面初次加载时同步一次
+onMounted(() => {
+  loadUserInfo()
+})
 </script>
 
 <style lang="scss">
