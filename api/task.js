@@ -63,7 +63,6 @@ export default {
   
   // 获取运送员任务记录
   getTransporterTaskRecords(transporterId, params) {
-	// console.log("tse111111111111"+transporterId,params);
     return request.get(`/records/transporter/${transporterId}`, {
       data: { 
         status: params.status,
@@ -78,15 +77,9 @@ export default {
     return request.get(`/records/taskNodes/${taskId}`);
   },
   
-  //获取物品类型
-  getAllTypes() {
-	  return request.get('/task/getAllTypes');
-  },
-  
-  
   //获取所有科室信息
   getDepartments(){
-	  return requeset.get('/department/getAllDepartments')
+	  return request.get(`/department/getAllDepartments`)
   },
   
 };

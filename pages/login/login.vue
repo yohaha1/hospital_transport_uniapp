@@ -66,7 +66,7 @@ const handleLogin = async () => {
     const token = await userApi.login(username.value, password.value)
     if (!token) throw new Error('登录失败：未获取到token')
     uni.setStorageSync('token', token)
-    const tokenParts = token.split('.')
+    
     if (tokenParts.length === 3) {
       const payload = decodeJwtPayload(tokenParts[1])
       if (!payload) throw new Error('登录失败：无法解析用户信息')
@@ -75,6 +75,7 @@ const handleLogin = async () => {
         username: payload.sub,
         role: (payload.role || '').replace('ROLE_', '')
       }
+	  
       const userInfo = await userApi.getByUsername(basicUserInfo.username)
       uni.setStorageSync('userInfo', userInfo)
 	  console.log("获得用户信息：", userInfo)

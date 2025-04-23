@@ -1,6 +1,6 @@
 <template>
   <view class="create-task">
-    <form @submit.prevent="handleSubmit">
+    <form @submit="handleSubmit">
       <!-- 基本信息 -->
       <view class="form-section">
         <view class="section-title">基本信息</view>
@@ -8,7 +8,7 @@
           <text class="label">物品名称</text>
           <input
             class="input"
-            v-model="formData.itemName"
+            v-model="formData.itemname"
             placeholder="请输入物品名称"
           />
         </view>
@@ -21,7 +21,7 @@
             @change="handleTypeChange"
           >
             <view class="picker-text">
-              {{ formData.itemType || '请选择物品类型' }}
+              {{ formData.itemtype || '请选择物品类型' }}
             </view>
           </picker>
         </view>
@@ -30,10 +30,18 @@
           <text class="label">紧急程度</text>
           <radio-group class="radio-group" @change="handlePriorityChange">
             <label class="radio" v-for="item in priorities" :key="item.value">
-              <radio :value="item.value" :checked="formData.priority === item.value" />
+              <radio :value="String(item.value)" :checked="String(formData.priority) === String(item.value)" />
               <text>{{ item.label }}</text>
             </label>
           </radio-group>
+        </view>
+        <view class="form-item">
+          <text class="label">任务备注</text>
+          <input
+            class="input"
+            v-model="formData.note"
+            placeholder="请输入备注"
+          />
         </view>
       </view>
 
@@ -58,35 +66,13 @@
             <text class="label">科室</text>
             <picker
               class="picker"
-              :range="departments"
+              :range="departments.map(dep => dep.departmentname)"
               @change="(e) => handleDepartmentChange(e, index)"
             >
               <view class="picker-text">
-                {{ node.department || '请选择科室' }}
+                {{ node.departmentName || '请选择科室' }}
               </view>
             </picker>
-          </view>
-
-          <view class="form-item">
-            <text class="label">预计时间</text>
-            <picker
-              class="picker"
-              mode="time"
-              @change="(e) => handleTimeChange(e, index)"
-            >
-              <view class="picker-text">
-                {{ node.expectedTime || '请选择预计时间' }}
-              </view>
-            </picker>
-          </view>
-
-          <view class="form-item">
-            <text class="label">备注</text>
-            <input
-              class="input"
-              v-model="node.remark"
-              placeholder="请输入备注信息"
-            />
           </view>
         </view>
       </view>
@@ -100,7 +86,7 @@
             v-for="(item, index) in formData.files"
             :key="index"
           >
-            <image :src="item.path" mode="aspectFill"></image>
+            <image :src="item.url" mode="aspectFill"></image>
             <text class="delete-icon" @click="deleteFile(index)">×</text>
           </view>
 
@@ -113,44 +99,58 @@
 
       <button class="submit-btn" form-type="submit" type="submit">发起任务</button>
     </form>
+    <!-- 隐藏的input用于选择图片文件 -->
+    <input type="file" accept="image/*" capture="camera" style="display:none" ref="fileInput" @change="onFileInputChange" />
   </view>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, toRaw } from 'vue'
 import taskApi from '@/api/task.js'
+import FormData from '@/utils/formdata.js' 
 
 const formData = ref({
-  itemName: '',
-  itemType: '',
-  priority: 'normal',
-  nodes: [{ department: '', expectedTime: '', remark: '' }],
-  files: []
+  itemname: '',
+  itemtype: '',
+  priority: 0, // 0普通 1紧急 2特急
+  note: '',
+  nodes: [{ departmentId: '', departmentName: '' }],
+  files: [] // {file: File, url: string}
 })
 
 const itemTypes = ['药品', '医疗器械', '化验样本', '其他']
 const priorities = [
-  { label: '普通', value: 'normal' },
-  { label: '紧急', value: 'urgent' },
-  { label: '特急', value: 'critical' }
+  { label: '普通', value: 0 },
+  { label: '紧急', value: 1 },
+  { label: '特急', value: 2 }
 ]
-const departments = ['内科', '外科', '急诊科', '检验科', '药房'] // 实际应从后端获取
+const departments = ref([])
+
+// 获取部门列表
+onMounted(async () => {
+  try {
+    const res = await taskApi.getDepartments()
+    departments.value = Array.isArray(res) ? res : [],
+	console.log("所有部门信息：",toRaw(departments.value))
+  } catch (e) {
+    uni.showToast({ title: '获取科室失败', icon: 'none' })
+  }
+})
 
 // 选择器事件处理
 const handleTypeChange = (e) => {
-  formData.value.itemType = itemTypes[e.detail.value]
+  formData.value.itemtype = itemTypes[e.detail.value]
 }
 
 const handlePriorityChange = (e) => {
-  formData.value.priority = e.detail.value
+  formData.value.priority = Number(e.detail.value)
 }
 
 const handleDepartmentChange = (e, index) => {
-  formData.value.nodes[index].department = departments[e.detail.value]
-}
-
-const handleTimeChange = (e, index) => {
-  formData.value.nodes[index].expectedTime = e.detail.value
+  const selectIdx = e.detail.value
+  const dep = departments.value[selectIdx]
+  formData.value.nodes[index].departmentId = dep.departmentid
+  formData.value.nodes[index].departmentName = dep.departmentname
 }
 
 // 节点管理
@@ -162,7 +162,7 @@ const addNode = () => {
     })
     return
   }
-  formData.value.nodes.push({ department: '', expectedTime: '', remark: '' })
+  formData.value.nodes.push({ departmentId: '', departmentName: '' })
 }
 
 const deleteNode = (index) => {
@@ -176,72 +176,113 @@ const deleteNode = (index) => {
   formData.value.nodes.splice(index, 1)
 }
 
-// 文件管理
+//用uni.chooseImage选图，然后用uni.getFileSystemManager读取真实文件后上传
 const chooseImage = async () => {
-  try {
-    const res = await uni.chooseImage({
-      count: 1,
-      sizeType: ['compressed']
-    })
-    formData.value.files.push({
-      path: res.tempFilePaths[0]
-    })
-  } catch (error) {
-    console.error('选择图片失败：', error)
-  }
+  uni.chooseImage({
+    count: 3 - formData.value.files.length,
+    sizeType: ['compressed'],
+    sourceType: ['album', 'camera'],
+    success: res => {
+      res.tempFilePaths.forEach(filePath => {
+        formData.value.files.push({ url: filePath, path: filePath })
+      })
+    }
+  })
+}
+
+const fileInput = ref()
+const triggerChooseFile = () => {
+  if (fileInput.value) fileInput.value.click()
+}
+
+const onFileInputChange = (e) => {
+  const files = Array.from(e.target.files)
+  files.forEach(file => {
+    const url = URL.createObjectURL(file)
+    formData.value.files.push({ file, url })
+  })
 }
 
 const deleteFile = (index) => {
   formData.value.files.splice(index, 1)
 }
 
-// 表单提交
+// 表单提交（微信小程序使用wx.uploadFile上传图片文件）
 const handleSubmit = async () => {
-  // 表单验证
-  if (!formData.value.itemName || !formData.value.itemType) {
+  if (!formData.value.itemname || !formData.value.itemtype) {
     uni.showToast({
       title: '请填写物品信息',
       icon: 'none'
     })
     return
   }
-  if (!formData.value.nodes.every(node => node.department && node.expectedTime)) {
+  if (!formData.value.nodes.every(node => node.departmentId)) {
+	  console.log("testtttttttttttttt",toRaw(formData.value.nodes))
     uni.showToast({
-      title: '请完善节点信息',
+      title: '请选择所有节点科室',
       icon: 'none'
     })
     return
   }
   try {
     const userInfo = uni.getStorageSync('userInfo')
+	const token = uni.getStorageSync('token')
+
     // 构建任务数据
     const taskData = {
-      itemName: formData.value.itemName,
-      itemType: formData.value.itemType,
+      itemname: formData.value.itemname,
+      itemtype: formData.value.itemtype,
       priority: formData.value.priority,
-      creatorId: userInfo.id,
-      departmentId: userInfo.departmentId,
-      status: 'PENDING'
+      status: 'NEW',
+      note: formData.value.note,
+      docid: userInfo.id
     }
     // 构建节点数据
-    const nodeData = formData.value.nodes.map((node, index) => ({
-      departmentId: node.department, // 实际应使用部门ID
-      expectedTime: node.expectedTime,
-      remark: node.remark,
-      sequence: index + 1
+    const nodeData = formData.value.nodes.map(node => ({
+      departmentid: node.departmentId
     }))
-    // 获取文件路径列表
-    const files = formData.value.files.map(file => file.path)
-    // 提交任务
-    await taskApi.createTask(taskData, nodeData, files)
-    uni.showToast({
-      title: '任务创建成功',
-      icon: 'success'
+
+    // 微信小程序端图片上传 
+    // 1. 用 formdata.js 组装 multipart 格式
+    const fd = new FormData()
+    fd.append('task', JSON.stringify(taskData))
+    fd.append('nodes', JSON.stringify(nodeData))
+    formData.value.files.forEach(f => {
+      fd.appendFile('files', f.path)
     })
-    // 返回任务列表页
-    setTimeout(() => {
-      uni.navigateBack()
-    }, 1500)
+    const { buffer } = fd.getData()
+	const boundary = fd.boundary;
+    // 2. 用 wx.request 发送
+    wx.request({
+      url: 'http://localhost:8080/task/create',
+      method: 'POST',
+      data: buffer,
+      header: {
+        'content-type': `multipart/form-data; boundary= ${boundary}` ,             // Content-Type: multipart/form-data; boundary=...
+        'Authorization': `Bearer ${token}` 
+      },
+      responseType: 'text', // 避免小程序自动解析
+      success: (res) => {
+        if (res.success) {
+          let data = res.data;
+          if (typeof data === 'string') {
+            // 可能是字符串，尝试解析
+            try { data = JSON.parse(data) } catch (_) {}
+          }
+          if (data && data.success) {
+            uni.showToast({ title: '任务创建成功', icon: 'success' })
+            setTimeout(() => { uni.navigateBack() }, 1500)
+          } else {
+            uni.showToast({ title: data.error || '创建失败', icon: 'none' })
+          }
+        } else {
+          uni.showToast({ title: '创建失败', icon: 'none' })
+        }
+      },
+      fail: (e) => {
+        uni.showToast({ title: '请求失败', icon: 'none' })
+      }
+    })
   } catch (error) {
     uni.showToast({
       title: error.message || '创建任务失败',
@@ -250,6 +291,7 @@ const handleSubmit = async () => {
   }
 }
 </script>
+
 
 <style lang="scss">
 .create-task {
