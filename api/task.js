@@ -1,15 +1,18 @@
 import request from '@/utils/request';
 
 export default {
-  // 创建运输任务
-  createTask(task, nodes, files) {
-    const formData = new FormData();
-    formData.append('task', JSON.stringify(task));
-    formData.append('nodes', JSON.stringify(nodes));
-    files.forEach(file => {
-      formData.append('files', file);
+  // 创建运输任务（不带文件）
+  createTask(task, nodes) {
+    return request.post('/task/create', {
+      task,
+      nodes
     });
-    return request.post('/task/create', formData);
+  },
+
+  // 上传任务附件（单文件上传，filePath为本地路径）
+  uploadTaskFile(taskId, filePath) {
+    // filePath 是 chooseImage 后返回的本地图片路径
+    return request.upload('/task/uploadFile', filePath, { taskId });
   },
 
   // 接受任务

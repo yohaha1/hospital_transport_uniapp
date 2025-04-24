@@ -67,8 +67,10 @@ const handleLogin = async () => {
     if (!token) throw new Error('登录失败：未获取到token')
     uni.setStorageSync('token', token)
     
+	const tokenParts = token.split('.')
     if (tokenParts.length === 3) {
       const payload = decodeJwtPayload(tokenParts[1])
+	  console.log(payload)
       if (!payload) throw new Error('登录失败：无法解析用户信息')
       const basicUserInfo = {
         id: payload.id,

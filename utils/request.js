@@ -93,28 +93,35 @@ export default {
   },
 
   // 上传文件
-  upload(url, file, formData = {}) {
+  upload(url, filePath, formData = {}) {
     return new Promise((resolve, reject) => {
-      uni.uploadFile({
-        url: `${BASE_URL}${url}`,
-        filePath: file,
-        name: 'file',
-        formData,
-        header: {
-          'Authorization': `Bearer ${uni.getStorageSync('token')}`
-        },
-        success: (res) => {
-          try {
-            resolve(responseInterceptor(res));
-          } catch (error) {
-            reject(error);
-          }
-        },
-        fail: (err) => {
-          console.error('上传失败:', err);
-          reject(new Error('文件上传失败，请重试'));
-        }
-      });
+		uni.uploadFile({
+		  url: `${BASE_URL}${url}`,
+		  filePath,
+		  name: 'file',
+		  formData,
+		  header: {
+			'Authorization': `Bearer ${uni.getStorageSync('token')}`
+		  },
+		  success: (res) => {
+			try {
+			  let data = res.data;
+			  if (typeof data === 'string') {
+				try { data = JSON.parse(data); } catch (_) {}
+			  }
+			  if (res.statusCode >= 200 && res.statusCode < 300) {
+				resolve(data);
+			  } else {
+				reject(new Error((data && data.error) || `文件上传失败: ${res.statusCode}`));
+			  }
+			} catch (error) {
+			  reject(error);
+			}
+		  },
+		  fail: (err) => {
+			reject(new Error('文件上传失败，请重试'));
+		  }
+		});
     });
   }
 };

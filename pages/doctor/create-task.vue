@@ -107,7 +107,6 @@
 <script setup>
 import { ref, onMounted, toRaw } from 'vue'
 import taskApi from '@/api/task.js'
-import FormData from '@/utils/formdata.js' 
 
 const formData = ref({
   itemname: '',
@@ -207,28 +206,16 @@ const deleteFile = (index) => {
   formData.value.files.splice(index, 1)
 }
 
-// 表单提交（微信小程序使用wx.uploadFile上传图片文件）
+// 表单提交
 const handleSubmit = async () => {
   if (!formData.value.itemname || !formData.value.itemtype) {
-    uni.showToast({
-      title: '请填写物品信息',
-      icon: 'none'
-    })
-    return
+    uni.showToast({ title: '请填写物品信息', icon: 'none' }); return;
   }
   if (!formData.value.nodes.every(node => node.departmentId)) {
-	  console.log("testtttttttttttttt",toRaw(formData.value.nodes))
-    uni.showToast({
-      title: '请选择所有节点科室',
-      icon: 'none'
-    })
-    return
+    uni.showToast({ title: '请选择所有节点科室', icon: 'none' }); return;
   }
   try {
     const userInfo = uni.getStorageSync('userInfo')
-	const token = uni.getStorageSync('token')
-
-    // 构建任务数据
     const taskData = {
       itemname: formData.value.itemname,
       itemtype: formData.value.itemtype,
@@ -237,52 +224,19 @@ const handleSubmit = async () => {
       note: formData.value.note,
       docid: userInfo.id
     }
-    // 构建节点数据
     const nodeData = formData.value.nodes.map(node => ({
       departmentid: node.departmentId
     }))
 
-    // 微信小程序端图片上传 
-    // 1. 用 formdata.js 组装 multipart 格式
-    const fd = new FormData()
-    fd.append('task', JSON.stringify(taskData))
-    fd.append('nodes', JSON.stringify(nodeData))
-    formData.value.files.forEach(f => {
-      fd.appendFile('files', f.path)
-    })
-    const { buffer } = fd.getData()
-	const boundary = fd.boundary;
-    // 2. 用 wx.request 发送
-    wx.request({
-      url: 'http://localhost:8080/task/create',
-      method: 'POST',
-      data: buffer,
-      header: {
-        'content-type': `multipart/form-data; boundary= ${boundary}` ,             // Content-Type: multipart/form-data; boundary=...
-        'Authorization': `Bearer ${token}` 
-      },
-      responseType: 'text', // 避免小程序自动解析
-      success: (res) => {
-        if (res.success) {
-          let data = res.data;
-          if (typeof data === 'string') {
-            // 可能是字符串，尝试解析
-            try { data = JSON.parse(data) } catch (_) {}
-          }
-          if (data && data.success) {
-            uni.showToast({ title: '任务创建成功', icon: 'success' })
-            setTimeout(() => { uni.navigateBack() }, 1500)
-          } else {
-            uni.showToast({ title: data.error || '创建失败', icon: 'none' })
-          }
-        } else {
-          uni.showToast({ title: '创建失败', icon: 'none' })
-        }
-      },
-      fail: (e) => {
-        uni.showToast({ title: '请求失败', icon: 'none' })
-      }
-    })
+    // 1. 创建任务
+	console.log("tsetttttttttttttttttttt",nodeData)
+    const taskId = await taskApi.createTask(taskData, nodeData)
+    // 2. 循环上传图片
+    for (const f of formData.value.files) {
+      await taskApi.uploadTaskFile(taskId, f.path)
+    }
+    uni.showToast({ title: '任务创建成功', icon: 'success' })
+    setTimeout(() => { uni.navigateBack() }, 1500)
   } catch (error) {
     uni.showToast({
       title: error.message || '创建任务失败',
