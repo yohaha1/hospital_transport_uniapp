@@ -1,10 +1,9 @@
 <template>
   <view class="login-container">
     <view class="login-header">
-      <image class="logo" src="/static/images/logo.png" mode="aspectFit"></image>
+      <image class="logo" src="/static/logo.png" mode="aspectFit"></image>
       <text class="title">医院运输管理系统</text>
     </view>
-    
     <view class="login-form">
       <view class="input-group">
         <text class="label">用户名</text>
@@ -15,7 +14,6 @@
           placeholder="请输入用户名"
         />
       </view>
-      
       <view class="input-group">
         <text class="label">密码</text>
         <input 
@@ -25,7 +23,6 @@
           placeholder="请输入密码"
         />
       </view>
-      
       <button class="login-btn" @click="handleLogin" :loading="loading">登录</button>
     </view>
   </view>
@@ -99,68 +96,101 @@ const handleLogin = async () => {
 </script>
 
 <style lang="scss">
+html, body, #app {
+  height: 100%;
+  overflow: hidden; // 阻止页面滚动
+}
+
 .login-container {
-  min-height: 100vh;
-  padding: 60rpx;
+  position: fixed;
+  left: 0; top: 0; right: 0; bottom: 0;
+  width: 100vw;
+  height: 100vh;
   background-color: #f8f8f8;
-  
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: transform .5s;
+  &:active { transform: scale(0.97); }
+
   .login-header {
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin-bottom: 80rpx;
-    
+    margin-bottom: 48rpx;
+
     .logo {
-      width: 180rpx;
-      height: 180rpx;
-      margin-bottom: 20rpx;
+      width: 120rpx;
+      height: 120rpx;
+      margin-bottom: 12rpx;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.05);
     }
-    
     .title {
       font-size: 36rpx;
       font-weight: bold;
-      color: #333;
+      color: #222;
+      letter-spacing: 1px;
+      margin-top: 2rpx;
+      text-shadow: 0 2rpx 6rpx rgba(0,0,0,0.06);
     }
   }
-  
+
   .login-form {
     background-color: #fff;
     border-radius: 20rpx;
-    padding: 40rpx;
-    box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.1);
-    
+    padding: 38rpx 24rpx 28rpx 24rpx;
+    box-shadow: 0 8rpx 36rpx rgba(0,0,0,0.10);
+    width: 90vw;
+    max-width: 500rpx;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+
     .input-group {
-      margin-bottom: 30rpx;
-      
+      margin-bottom: 28rpx;
       .label {
         display: block;
-        font-size: 28rpx;
-        color: #666;
-        margin-bottom: 10rpx;
+        font-size: 30rpx;
+        color: #555;
+        margin-bottom: 8rpx;
+        font-weight: 500;
+        letter-spacing: .5px;
       }
-      
       .input {
         width: 100%;
-        height: 80rpx;
-        border: 2rpx solid #ddd;
-        border-radius: 8rpx;
-        padding: 0 20rpx;
-        font-size: 28rpx;
+        height: 86rpx;
+        border: 2rpx solid #e6e6e6;
+        border-radius: 10rpx;
+        padding: 0 18rpx;
+        font-size: 29rpx;
+        background: #f7f8fa;
+        transition: border 0.2s;
+        box-sizing: border-box;
+      }
+      .input:focus {
+        border: 2rpx solid #007aff;
+        background: #fff;
       }
     }
-    
     .login-btn {
       width: 100%;
-      height: 88rpx;
-      line-height: 88rpx;
-      background-color: #007AFF;
+      height: 80rpx;
+      line-height: 80rpx;
+      background: linear-gradient(90deg, #0989fa 0%, #007AFF 100%);
       color: #fff;
-      font-size: 32rpx;
-      border-radius: 44rpx;
-      margin-top: 60rpx;
-      
+      font-size: 30rpx;
+      border-radius: 40rpx;
+      font-weight: bold;
+      letter-spacing: 1.5rpx;
+      margin-top: 8rpx;
+      box-shadow: 0 2rpx 12rpx rgba(0,122,255,0.07);
+      border: none;
       &:active {
-        opacity: 0.8;
+        opacity: 0.85;
       }
     }
   }

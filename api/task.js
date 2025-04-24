@@ -10,9 +10,9 @@ export default {
   },
 
   // 上传任务附件（单文件上传，filePath为本地路径）
-  uploadTaskFile(taskId, filePath) {
+  uploadTaskFile(taskId,stage, filePath) {
     // filePath 是 chooseImage 后返回的本地图片路径
-    return request.upload('/task/uploadFile', filePath, { taskId });
+    return request.upload('/task/uploadFile', filePath, { taskId, stage });
   },
 
   // 接受任务

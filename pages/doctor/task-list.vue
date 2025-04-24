@@ -15,7 +15,6 @@
           </view>
         </view>
       </scroll-view>
-      <!-- 时间筛选区域新增 -->
       <view class="date-filter">
         <picker mode="date" :value="startDate" @change="handleStartDateChange">
           <view class="picker">
@@ -29,7 +28,6 @@
         </picker>
       </view>
     </view>
-    
     <!-- 任务列表 -->
     <scroll-view 
       class="task-scroll" 
@@ -41,40 +39,37 @@
     >
       <view 
         class="task-item" 
-        v-for="task in tasks" 
-        :key="task.id"
-        @click="showTaskDetail(task)"
+        v-for="item in tasks" 
+        :key="item.task.taskid"
+        @click="showTaskDetail(item)"
       >
         <view class="task-header">
           <view class="left">
-            <text class="type-tag">{{ task.itemType }}</text>
-            <text class="item-name">{{ task.itemName }}</text>
+            <text class="type-tag">{{ item.task.itemtype }}</text>
+            <text class="item-name">{{ item.task.itemname }}</text>
           </view>
-          <text class="status-tag" :class="getStatusClass(task.status)">
-            {{ getStatusText(task.status) }}
+          <text class="priority-tag" :class="getPriorityClass(priorityMap[item.task.priority])">
+            {{ getPriorityText(priorityMap[item.task.priority]) }}
           </text>
         </view>
         <view class="task-info">
           <view class="info-row">
             <text class="label">运送员：</text>
-            <text class="value">{{ task.transporterName || 'null' }}</text>
+            <text class="value">{{ item.transporterName || '—' }}</text>
           </view>
           <view class="info-row">
             <text class="label">发起时间：</text>
-            <text class="value">{{ formatTime(task.createTime) }}</text>
+            <text class="value">{{ formatTime(item.task.createtime) }}</text>
           </view>
           <view class="info-row">
             <text class="label">当前位置：</text>
-            <text class="value">{{ task.currentNode?.department || '-' }}</text>
+            <text class="value">{{ item.task.currentNode?.department || '-' }}</text>
           </view>
         </view>
         <view class="task-footer">
           <view class="progress-info">
-            <text class="completed">{{ task.completedNodes || 0 }}</text>
-            <text class="total">/{{ task.nodes?.length || 0 }} 个节点</text>
-          </view>
-          <view class="priority-tag" :class="getPriorityClass(task.priority)">
-            {{ getPriorityText(task.priority) }}
+            <text class="completed">{{ item.task.completedNodes || 0 }}</text>
+            <text class="total">/{{ item.task.nodes?.length || 0 }} 个节点</text>
           </view>
         </view>
       </view>
@@ -94,98 +89,24 @@
         </button>
       </view>
     </scroll-view>
-    
-    <!-- 任务详情弹窗 -->
+    <!-- 任务详情弹窗，直接复用TaskDetail组件 -->
     <uni-popup ref="taskDetailPopup" type="bottom">
-      <view class="task-detail" v-if="currentTask">
-        <view class="detail-header">
-          <text class="title">任务详情</text>
-          <text class="close-btn" @click="closeTaskDetail">×</text>
-        </view>
-        <scroll-view class="detail-content" scroll-y>
-          <view class="detail-section">
-            <view class="section-title">基本信息</view>
-            <view class="info-list">
-              <view class="info-item">
-                <text class="label">物品名称</text>
-                <text class="value">{{ currentTask.itemName }}</text>
-              </view>
-              <view class="info-item">
-                <text class="label">物品类型</text>
-                <text class="value">{{ currentTask.itemType }}</text>
-              </view>
-              <view class="info-item">
-                <text class="label">紧急程度</text>
-                <text class="value" :class="getPriorityClass(currentTask.priority)">
-                  {{ getPriorityText(currentTask.priority) }}
-                </text>
-              </view>
-              <view class="info-item">
-                <text class="label">任务状态</text>
-                <text class="value" :class="getStatusClass(currentTask.status)">
-                  {{ getStatusText(currentTask.status) }}
-                </text>
-              </view>
-              <view class="info-item">
-                <text class="label">运送员</text>
-                <text class="value">{{ currentTask.transporterName || '待接单' }}</text>
-              </view>
-            </view>
-          </view>
-          
-          <view class="detail-section">
-            <view class="section-title">交接记录</view>
-            <view class="node-list">
-              <view 
-                class="node-item"
-                v-for="(node, index) in currentTask.nodes"
-                :key="index"
-                :class="{
-                  'completed': node.status === 'COMPLETED',
-                  'current': node.status === 'PROCESSING'
-                }"
-              >
-                <view class="node-line" v-if="index > 0"></view>
-                <view class="node-dot"></view>
-                <view class="node-info">
-                  <text class="department">{{ node.department }}</text>
-                  <text class="time">预计{{ node.expectedTime }}</text>
-                  <text class="actual-time" v-if="node.actualTime">
-                    实际{{ formatTime(node.actualTime) }}
-                  </text>
-                  <text class="status">{{ getNodeStatusText(node.status) }}</text>
-                </view>
-                <view class="node-image" v-if="node.confirmImage" @click="previewImage(node.confirmImage)">
-                  <image :src="node.confirmImage" mode="aspectFill"></image>
-                </view>
-              </view>
-            </view>
-          </view>
-          
-          <view class="detail-section" v-if="currentTask.files && currentTask.files.length">
-            <view class="section-title">附件</view>
-            <view class="image-list">
-              <image 
-                v-for="(file, index) in currentTask.files"
-                :key="index"
-                :src="file.url"
-                mode="aspectFill"
-                @click="previewImage(file.url)"
-              ></image>
-            </view>
-          </view>
-        </scroll-view>
-      </view>
+      <TaskDetail
+        :task="currentTask"
+        :user-role="userRole"
+        @close="closeTaskDetail"
+        @accept="handleAcceptTask"
+      />
     </uni-popup>
-    
     <tabBar :selectedIndex="1" />
   </view>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import taskApi from '@/api/task.js'
+import TaskDetail from '@/components/TaskDetail.vue'
 
 const statusFilters = [
   { label: '全部', value: 'ALL' },
@@ -205,6 +126,51 @@ const noMore = ref(false)
 const isRefreshing = ref(false)
 const currentTask = ref(null)
 const taskDetailPopup = ref(null)
+const userRole = ref('')
+
+// 优先级映射
+const priorityMap = {
+  0: 'normal',
+  1: 'urgent',
+  2: 'critical'
+}
+
+//获取优先级样式
+const getPriorityClass = priority => {
+  const classes = {
+    normal: 'priority-normal',
+    urgent: 'priority-urgent',
+    critical: 'priority-critical'
+  }
+  return classes[priorityMap[priority] || priority] || ''
+}
+
+//获取优先级文本
+const getPriorityText = priority => {
+  const texts = {
+    normal: '普通',
+    urgent: '紧急',
+    critical: '特急'
+  }
+  return texts[priorityMap[priority] || priority] || ''
+}
+
+//获取状态文本
+const getStatusText = status => {
+  const texts = {
+    NEW: '待接单',
+    TRANSPORTING: '运送中',
+    DELIVERED: '已完成'
+  }
+  return texts[status] || status
+}
+
+const formatTime = ts => {
+  if (!ts) return ''
+  const date = new Date(ts)
+  const pad = n => n < 10 ? '0' + n : n
+  return `${date.getMonth() + 1}月${date.getDate()}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
 
 // 加载任务列表
 const loadTasks = async (refresh = false) => {
@@ -217,12 +183,15 @@ const loadTasks = async (refresh = false) => {
   isLoading.value = true
   try {
     const userInfo = uni.getStorageSync('userInfo')
+    userRole.value = (userInfo.role || '').toLowerCase()
     const params = {
       status: currentStatus.value === 'ALL' ? null : currentStatus.value,
       startDate: startDate.value,
       endDate: endDate.value
     }
     const res = await taskApi.getDepartmentTasks(userInfo.departmentid, params)
+	console.log("task list 部门任务列表 ",res)
+    
     if (refresh) {
       tasks.value = res
     } else {
@@ -243,7 +212,7 @@ const loadTasks = async (refresh = false) => {
   }
 }
 
-// 新增：时间筛选事件
+// 时间筛选
 const handleStartDateChange = e => {
   startDate.value = e.detail.value
   loadTasks(true)
@@ -271,24 +240,33 @@ const loadMore = () => {
   loadTasks()
 }
 
-// 显示任务详情
-const showTaskDetail = async (task) => {
+// 弹窗展示任务详情，全部复用TaskDetail
+const showTaskDetail = async (item) => {
   try {
-    const nodes = await taskApi.getTaskNodes(task.id)
+    const nodesRes = await taskApi.getTaskNodes(item.task.taskid)
+	console.log("testtttttttttt",nodesRes)
+    const nodes = nodesRes.map(n => ({
+      ...n.node,
+      department: n.department.departmentname,
+      departmentAddress: n.department.address,
+    }))
+	console.log("tttttttttttttttttt",nodes)
     currentTask.value = {
-      ...task,
-      nodes
+      ...item.task,
+	  departmentName: item.department.departmentname,
+	  departmentAddress:item.department.address,
+      nodes,
     }
     taskDetailPopup.value.open()
   } catch (error) {
     uni.showToast({
-      title: error.message || '获取详情失败',
+      title: error.message || '详情加载失败',
       icon: 'none'
     })
   }
 }
 
-// 关闭任务详情
+// 关闭详情弹窗
 const closeTaskDetail = () => {
   taskDetailPopup.value.close()
   setTimeout(() => {
@@ -296,68 +274,16 @@ const closeTaskDetail = () => {
   }, 200)
 }
 
-// 页面导航
+// 可扩展：接单逻辑（如需）
+const handleAcceptTask = async (task) => {
+  // 按需实现
+}
+
+// 新建任务
 const navigateToCreate = () => {
   uni.navigateTo({
     url: '/pages/nurse/create-task/create-task'
   })
-}
-
-// 预览图片
-const previewImage = url => {
-  uni.previewImage({
-    urls: [url],
-    current: url
-  })
-}
-
-// 工具方法
-const getPriorityClass = priority => {
-  const classes = {
-    normal: 'priority-normal',
-    urgent: 'priority-urgent',
-    critical: 'priority-critical'
-  }
-  return classes[priority] || ''
-}
-const getPriorityText = priority => {
-  const texts = {
-    normal: '普通',
-    urgent: '紧急',
-    critical: '特急'
-  }
-  return texts[priority] || ''
-}
-const getStatusClass = status => {
-  const classes = {
-    PENDING: 'status-pending',
-    ACCEPTED: 'status-accepted',
-    PROCESSING: 'status-processing',
-    COMPLETED: 'status-completed'
-  }
-  return classes[status] || ''
-}
-const getStatusText = status => {
-  const texts = {
-    PENDING: '待接单',
-    ACCEPTED: '待开始',
-    PROCESSING: '运送中',
-    COMPLETED: '已完成'
-  }
-  return texts[status] || ''
-}
-const getNodeStatusText = status => {
-  const texts = {
-    PENDING: '待到达',
-    PROCESSING: '进行中',
-    COMPLETED: '已完成'
-  }
-  return texts[status] || ''
-}
-const formatTime = timestamp => {
-  const date = new Date(timestamp)
-  const pad = n => n < 10 ? '0' + n : n
-  return `${date.getMonth() + 1}月${date.getDate()}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
 onMounted(() => {
@@ -433,12 +359,12 @@ onShow(() => {
   
   .task-scroll {
 	height: calc(100vh - 100rpx - 100rpx); // 减去顶部和底部
-	margin-top: 100rpx; // 这里要和 .filter-section 的高度一致
+	margin-top: 150rpx; // 这里要和 .filter-section 的高度一致
 	padding: 20rpx;
   }
   
   .task-item {
-	margin-top: 100rpx;  
+	margin-top: 50rpx;  
     background-color: #fff;
     border-radius: 20rpx;
     padding: 30rpx;
@@ -495,6 +421,26 @@ onShow(() => {
           color: #666;
         }
       }
+	  .priority-tag {
+	    padding: 4rpx 12rpx;
+	    border-radius: 4rpx;
+	    font-size: 24rpx;
+	    
+	    &.priority-normal {
+	      background-color: #f6ffed;
+	      color: #52c41a;
+	    }
+	    
+	    &.priority-urgent {
+	      background-color: #fff7e6;
+	      color: #fa8c16;
+	    }
+	    
+	    &.priority-critical {
+	      background-color: #fff1f0;
+	      color: #f5222d;
+	    }
+	  }
     }
     
     .task-info {
@@ -534,26 +480,7 @@ onShow(() => {
         }
       }
       
-      .priority-tag {
-        padding: 4rpx 12rpx;
-        border-radius: 4rpx;
-        font-size: 24rpx;
-        
-        &.priority-normal {
-          background-color: #f6ffed;
-          color: #52c41a;
-        }
-        
-        &.priority-urgent {
-          background-color: #fff7e6;
-          color: #fa8c16;
-        }
-        
-        &.priority-critical {
-          background-color: #fff1f0;
-          color: #f5222d;
-        }
-      }
+
     }
   }
   

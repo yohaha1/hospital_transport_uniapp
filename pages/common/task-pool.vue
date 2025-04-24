@@ -47,13 +47,7 @@
             <text class="value">{{ formatTime(item.task.createtime) }}</text>
           </view>
         </view>
-        <view class="task-footer">
-          <button 
-            v-if="userRole === 'transporter'" 
-            class="accept-btn" 
-            @click.stop="handleAcceptTask(item)"
-          >接单</button>
-        </view>
+		
         <!-- 状态水印 -->
         <view class="status-watermark" :class="getStatusClass(item.task.status)">
           {{ getStatusText(item.task.status) }}
@@ -134,7 +128,9 @@ const loadTasks = async (refresh = false) => {
 
   isLoading.value = true
   try {
-    const res = await taskApi.getTasksByStatus('')
+    const tmp = await taskApi.getTasksByStatus('')
+	//筛选未完成的任务
+	const res = tmp.filter(task => task.status !== 'DELIVERED');
 	console.log("任务大厅任务列表：",res)
 
     if (refresh) {
@@ -181,13 +177,13 @@ const showTaskDetail = async (item) => {
     // 获取节点数据: [{node, department}]
     const nodesRes = await taskApi.getTaskNodes(item.task.taskid)
 	
-	console.log("任务大厅节点数据：",nodesRes)
+	console.log("任务详情节点数据：",nodesRes)
     const nodes = nodesRes.map(n => ({
       ...n.node,
       department: n.department.departmentname,
 	  departmentAddress: n.department.address,
     }))
-    // 传递 task属性拍平 + departmentName + nodes
+    // 传递 task属性 + departmentName + nodes
     currentTask.value = {
       ...item.task,
       departmentName: item.department.departmentname,

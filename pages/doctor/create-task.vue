@@ -222,18 +222,17 @@ const handleSubmit = async () => {
       priority: formData.value.priority,
       status: 'NEW',
       note: formData.value.note,
-      docid: userInfo.id
+      docid: userInfo.userid
     }
     const nodeData = formData.value.nodes.map(node => ({
       departmentid: node.departmentId
     }))
 
     // 1. 创建任务
-	console.log("tsetttttttttttttttttttt",nodeData)
     const taskId = await taskApi.createTask(taskData, nodeData)
     // 2. 循环上传图片
     for (const f of formData.value.files) {
-      await taskApi.uploadTaskFile(taskId, f.path)
+      await taskApi.uploadTaskFile(taskId,"CREATION", f.path)
     }
     uni.showToast({ title: '任务创建成功', icon: 'success' })
     setTimeout(() => { uni.navigateBack() }, 1500)
