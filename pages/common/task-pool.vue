@@ -180,14 +180,14 @@ const showTaskDetail = async (item) => {
 	console.log("任务详情节点数据：",nodesRes)
     const nodes = nodesRes.map(n => ({
       ...n.node,
-      department: n.department.departmentname,
-	  departmentAddress: n.department.address,
+      departmentname: n.department.departmentname,
+	  departmentaddress: n.department.address,
     }))
     // 传递 task属性 + departmentName + nodes
     currentTask.value = {
       ...item.task,
-      departmentName: item.department.departmentname,
-	  departmentAddress:item.department.address,
+      departmentname: item.department.departmentname,
+	  departmentaddress:item.department.address,
       nodes
     }
     taskDetailPopup.value.open()

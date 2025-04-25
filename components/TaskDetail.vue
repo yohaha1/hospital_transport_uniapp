@@ -14,10 +14,20 @@
           <text class="item-name">{{ task.itemname }}</text>
           <text class="priority-tag" :class="getPriorityClass(priorityMap[task.priority])">{{ getPriorityText(priorityMap[task.priority]) }}</text>
         </view>
-        <view class="info-row">
+        <!-- 差异字段判断显示 -->
+        <view class="info-row" v-if="task.departmentname">
           <text class="label">发起科室：</text>
-          <text class="value">{{ task.departmentName }}</text>
+          <text class="value">{{ task.departmentname }}</text>
         </view>
+        <view class="info-row" v-if="task.doctorName">
+          <text class="label">创建者：</text>
+          <text class="value">{{ task.doctorName }}</text>
+        </view>
+        <view class="info-row" v-if="task.transporterName">
+          <text class="label">运送员：</text>
+          <text class="value">{{ task.transporterName }}</text>
+        </view>
+        <!-- 公共字段 -->
         <view class="info-row">
           <text class="label">优先级：</text>
           <text class="value">{{ getPriorityText(priorityMap[task.priority]) }}</text>
@@ -34,6 +44,12 @@
           <text class="label">完成时间：</text>
           <text class="value">{{ formatTime(task.completion) }}</text>
         </view>
+        <!-- 任务备注 -->
+        <view class="((note-row))" v-if="task.note">
+          <text class="note-icon">📝</text>
+          <text class="note-label">备注：</text>
+          <text class="note-content">{{ task.note }}</text>
+        </view>
       </view>
 
       <!-- 交接节点卡片 -->
@@ -49,7 +65,7 @@
             <view class="node-dot" :class="{ 'completed': !!node.handovertime }">{{ index + 1 }}</view>
             <view class="node-info">
               <view class="node-row">
-                <text class="department">{{ node.department }}</text>
+                <text class="department">{{ node.departmentname }}</text>
                 <text class="sequence">序号: {{ node.sequence }}</text>
               </view>
               <view class="node-row time-row">
@@ -64,7 +80,7 @@
     <view class="detail-footer">
       <slot name="footer">
         <button 
-		  v-if = "userRole === 'transporter' && task.status === 'NEW'"
+          v-if="userRole === 'transporter' && task.status === 'NEW'"
           class="accept-btn" 
           @click="$emit('accept', task)"
         >接单</button>
@@ -72,7 +88,6 @@
     </view>
   </view>
 </template>
-
 <script setup>
 import { ref, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
@@ -88,43 +103,7 @@ import { toRaw } from 'vue'
 watch(
   () => props.task,
   (newTask) => {
-    console.log('taskDetail的task变化:', toRaw(newTask))
-	// {
-	// 	"taskid": 9,
-	// 	"itemname": "医疗物资",
-	// 	"itemtype": "药品",
-	// 	"priority": 1,
-	// 	"status": "TRANSPORTING",
-	// 	"note": "易碎",
-	// 	"createtime": "2025-04-10T00:29:11.000+00:00",
-	// 	"completion": null,
-	// 	"docid": 5,
-	// 	"transid": 6,
-	// 	"departmentName": "临床科室",
-	// 	"departmentAddress": null,
-	// 	"nodes": [{
-	// 		"taskid": 9,
-	// 		"departmentid": 101,
-	// 		"sequence": 1,
-	// 		"handovertime": "2025-04-19T07:21:56.000+00:00",
-	// 		"department": "后勤管理部门",
-	// 		"departmentAddress": null
-	// 	}, {
-	// 		"taskid": 9,
-	// 		"departmentid": 102,
-	// 		"sequence": 2,
-	// 		"handovertime": null,
-	// 		"department": "临床科室",
-	// 		"departmentAddress": null
-	// 	}, {
-	// 		"taskid": 9,
-	// 		"departmentid": 103,
-	// 		"sequence": 3,
-	// 		"handovertime": null,
-	// 		"department": "药房与供应室",
-	// 		"departmentAddress": null
-	// 	}]
-	// }
+    console.log('taskDetail的task:', toRaw(newTask))
   },
   { immediate: true }
 )
@@ -252,6 +231,30 @@ const formatTime = (time) => {
           .value {
             color: #333;
             font-size: 28rpx;
+          }
+        }
+        .note-row {
+          display: flex;
+          align-items: flex-start;
+          margin-top: 16rpx;
+          margin-bottom: 2rpx;
+          background: #fffbe6;
+          border-radius: 10rpx;
+          padding: 14rpx 18rpx;
+          font-size: 26rpx;
+          .note-icon {
+            margin-right: 8rpx;
+            color: #faad14;
+          }
+          .note-label {
+            font-weight: bold;
+            color: #faad14;
+            margin-right: 6rpx;
+          }
+          .note-content {
+            color: #8c6f1a;
+            word-break: break-all;
+            flex: 1;
           }
         }
       }

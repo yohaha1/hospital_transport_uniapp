@@ -1,59 +1,74 @@
 <template>
   <view class="active-task">
-    <template v-if="currentTask">
-      <!-- 任务状态 -->
-      <view class="status-section">
+    <template v-if="currentTasks.length > 0">
+      <view
+        class="status-section"
+        v-for="(currentTask, idx) in currentTasks"
+        :key="currentTask.taskid"
+        style="margin-bottom: 36rpx;"
+      >
         <view class="status-card">
           <view class="status-header">
             <view class="left">
-              <text class="type-tag">{{ currentTask.itemType }}</text>
-              <text class="item-name">{{ currentTask.itemName }}</text>
+              <text class="type-tag">{{ currentTask.itemtype }}</text>
+              <text class="item-name">{{ currentTask.itemname }}</text>
             </view>
+            <!-- 右上角优先级 -->
             <text class="priority-tag" :class="getPriorityClass(currentTask.priority)">
               {{ getPriorityText(currentTask.priority) }}
             </text>
           </view>
           <view class="status-info">
             <text class="status-text">{{ getStatusText(currentTask.status) }}</text>
-            <text class="time-text">{{ formatTime(currentTask.startTime) }}</text>
+            <text class="time-text">{{ formatTime(currentTask.createtime) }}</text>
+          </view>
+<!--          <view class="info-row">
+            <text class="label">创建者：</text>
+            <text class="value">{{ currentTask.doctorName || '—' }}</text>
+          </view> -->
+          <!-- 备注 -->
+          <view class="note-row" v-if="currentTask.note">
+            <text class="note-icon">📝</text>
+            <text class="note-label">备注：</text>
+            <text class="note-content">{{ currentTask.note }}</text>
           </view>
         </view>
-      </view>
-      <!-- 节点进度 -->
-      <view class="progress-section">
-        <view class="section-title">运送进度</view>
-        <view class="node-list">
-          <view 
-            class="node-item"
-            v-for="(node, index) in currentTask.nodes"
-            :key="index"
-            :class="{
-              'completed': node.status === 'COMPLETED',
-              'current': node.status === 'PROCESSING'
-            }"
-          >
-            <view class="node-line" v-if="index > 0"></view>
-            <view class="node-dot"></view>
-            <view class="node-info">
-              <text class="department">{{ node.department }}</text>
-              <text class="time">预计{{ node.expectedTime }}</text>
-              <text class="status">{{ getNodeStatusText(node.status) }}</text>
+        <!-- 节点进度 -->
+        <view class="progress-section">
+          <view class="section-title">运送进度</view>
+          <view class="node-list">
+            <view
+              class="node-item"
+              v-for="(node, index) in currentTask.nodes"
+              :key="node.departmentid"
+              :class="{
+                'completed': !!node.handovertime,
+                'current': !node.handovertime && isCurrentNode(currentTask.nodes, index)
+              }"
+            >
+              <view class="node-line" v-if="index > 0"></view>
+              <view class="node-dot"></view>
+              <view class="node-info">
+                <text class="department">{{ node.departmentname }}</text>
+                <text class="time" v-if="node.handovertime">交接时间：{{ formatTime(node.handovertime) }}</text>
+                <text class="time" v-else>等待交接</text>
+              </view>
             </view>
           </view>
         </view>
-      </view>
-      <!-- 操作区域 -->
-      <view class="action-section">
-        <template v-if="currentTask.status === 'ACCEPTED'">
-          <button class="action-btn primary" @click="handleStartTask">
-            开始运送
-          </button>
-        </template>
-        <template v-if="currentTask.status === 'PROCESSING'">
-          <button class="action-btn primary" @click="handleHandover">
-            交接确认
-          </button>
-        </template>
+        <!-- 操作区域 -->
+        <view class="action-section">
+          <template v-if="currentTask.status === 'ACCEPTED'">
+            <button class="action-btn primary" @click="handleStartTask(currentTask)">
+              开始运送
+            </button>
+          </template>
+          <template v-if="currentTask.status === 'TRANSPORTING'">
+            <button class="action-btn primary" @click="handleHandover(currentTask)">
+              交接确认
+            </button>
+          </template>
+        </view>
       </view>
     </template>
     <!-- 空状态 -->
@@ -73,9 +88,9 @@
         </view>
         <view class="popup-content">
           <view class="camera-box">
-            <camera 
-              device-position="back" 
-              flash="auto" 
+            <camera
+              device-position="back"
+              flash="auto"
               @scancode="handleScanCode"
             ></camera>
           </view>
@@ -92,31 +107,31 @@
         </view>
         <view class="popup-content">
           <view class="camera-box">
-            <camera 
+            <camera
               v-if="!tempPhotoPath"
-              device-position="back" 
+              device-position="back"
               flash="auto"
               @takePhoto="handleTakePhoto"
             ></camera>
-            <image 
-              v-else 
-              :src="tempPhotoPath" 
+            <image
+              v-else
+              :src="tempPhotoPath"
               mode="aspectFit"
             ></image>
           </view>
           <view class="btn-group">
-            <button 
-              class="photo-btn" 
+            <button
+              class="photo-btn"
               v-if="!tempPhotoPath"
               @click="takePhoto"
             >拍照</button>
-            <button 
-              class="photo-btn" 
+            <button
+              class="photo-btn"
               v-else
               @click="retakePhoto"
             >重拍</button>
-            <button 
-              class="photo-btn confirm" 
+            <button
+              class="photo-btn confirm"
               v-if="tempPhotoPath"
               @click="confirmPhoto"
             >确认</button>
@@ -124,52 +139,58 @@
         </view>
       </view>
     </uni-popup>
-  <tabBar :selectedIndex = "1"/>
+    <tabBar :selectedIndex="1"/>
   </view>
-  
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, toRaw } from 'vue'
 import taskApi from '@/api/task.js'
 
-const currentTask = ref(null)
+const currentTasks = ref([]) // 运送员所有进行中任务
 const tempPhotoPath = ref('')
 const qrCodeData = ref('')
 const actionType = ref('') // 'start' or 'handover'
+const actionTask = ref(null) // 当前操作的任务
 
 const qrCodePopup = ref(null)
 const photoPopup = ref(null)
 
-// 加载当前任务
-const loadCurrentTask = async () => {
+const priorityMap = {
+  0: 'normal',
+  1: 'urgent',
+  2: 'critical'
+}
+
+onMounted(() => {
+  loadCurrentTasks()
+})
+
+// 加载所有进行中任务及节点
+const loadCurrentTasks = async () => {
   try {
     const userInfo = uni.getStorageSync('userInfo')
-    // 演示数据，实际请用 await taskApi.getActiveTask(userInfo.id)
-    currentTask.value = {
-      id: 1,
-      itemName: '药品样本',
-      itemType: '药品',
-      priority: 'urgent',
-      status: 'ACCEPTED',
-      startTime: new Date().getTime(),
-      nodes: [
-        {
-          department: '内科',
-          expectedTime: '10:00',
-          status: 'COMPLETED'
-        },
-        {
-          department: '检验科',
-          expectedTime: '10:30',
-          status: 'PROCESSING'
-        },
-        {
-          department: '药房',
-          expectedTime: '11:00',
-          status: 'PENDING'
+    const params = { status: 'TRANSPORTING' }
+    const res = await taskApi.getTransporterTaskRecords(userInfo.userid, params)
+	console.log("运送员获取历史记录：",res)
+    if (Array.isArray(res) && res.length > 0) {
+      // 并行获取所有节点
+      const tasksWithNodes = await Promise.all(res.map(async item => {
+        const flatTask = {
+          ...item.task,
+          ...item.department
         }
-      ]
+        const nodesRaw = await taskApi.getTaskNodes(item.task.taskid)
+        const nodes = (nodesRaw || []).map(n => ({
+          ...n.node,
+          ...n.department
+        }))
+        return { ...flatTask, nodes }
+      }))
+      currentTasks.value = tasksWithNodes
+	  console.log("运送员运送中：",toRaw(currentTasks.value))
+    } else {
+      currentTasks.value = []
     }
   } catch (error) {
     uni.showToast({
@@ -179,15 +200,24 @@ const loadCurrentTask = async () => {
   }
 }
 
+// 判断当前节点
+const isCurrentNode = (nodes, index) => {
+  if (!nodes) return false
+  const firstUnfinished = nodes.findIndex(node => !node.handovertime)
+  return index === firstUnfinished
+}
+
 // 开始任务
-const handleStartTask = async () => {
+const handleStartTask = (task) => {
   actionType.value = 'start'
+  actionTask.value = task
   openQrCodePopup()
 }
 
 // 任务交接
-const handleHandover = async () => {
+const handleHandover = (task) => {
   actionType.value = 'handover'
+  actionTask.value = task
   openQrCodePopup()
 }
 
@@ -220,18 +250,23 @@ const retakePhoto = () => {
 const confirmPhoto = async () => {
   try {
     const userInfo = uni.getStorageSync('userInfo')
+    const task = actionTask.value
     if (actionType.value === 'start') {
       await taskApi.startTask(
-        currentTask.value.id,
-        userInfo.id,
+        task.taskid,
+        userInfo.userid,
         tempPhotoPath.value,
         qrCodeData.value
       )
     } else {
+      // 找到当前节点departmentid
+      const nodes = task.nodes || []
+      const idx = nodes.findIndex(n => !n.handovertime)
+      const departmentId = idx !== -1 ? nodes[idx].departmentid : ''
       await taskApi.handOverTask(
-        currentTask.value.id,
-        userInfo.id,
-        (currentTask.value.currentNode && currentTask.value.currentNode.departmentId) || '',
+        task.taskid,
+        userInfo.userid,
+        departmentId,
         tempPhotoPath.value,
         qrCodeData.value
       )
@@ -241,7 +276,7 @@ const confirmPhoto = async () => {
       icon: 'success'
     })
     // 重新加载任务状态
-    loadCurrentTask()
+    loadCurrentTasks()
     // 清理临时数据
     tempPhotoPath.value = ''
     qrCodeData.value = ''
@@ -285,7 +320,7 @@ const getPriorityClass = (priority) => {
     urgent: 'priority-urgent',
     critical: 'priority-critical'
   }
-  return classes[priority] || ''
+  return classes[priorityMap[priority] || priority] || ''
 }
 const getPriorityText = (priority) => {
   const texts = {
@@ -293,34 +328,27 @@ const getPriorityText = (priority) => {
     urgent: '紧急',
     critical: '特急'
   }
-  return texts[priority] || ''
+  return texts[priorityMap[priority] || priority] || ''
 }
 const getStatusText = (status) => {
   const texts = {
     ACCEPTED: '待开始',
-    PROCESSING: '运送中',
+    TRANSPORTING: '运送中',
     COMPLETED: '已完成'
   }
-  return texts[status] || ''
-}
-const getNodeStatusText = (status) => {
-  const texts = {
-    PENDING: '待到达',
-    PROCESSING: '进行中',
-    COMPLETED: '已完成'
-  }
-  return texts[status] || ''
+  return texts[status] || status
 }
 const formatTime = (timestamp) => {
+  if (!timestamp) return ''
   const date = new Date(timestamp)
   const pad = n => n < 10 ? '0' + n : n
   return `${date.getMonth() + 1}月${date.getDate()}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
-
-onMounted(() => {
-  loadCurrentTask()
-})
 </script>
+
+<style lang="scss">
+/* 样式同上，略 */
+</style>
 
 <style lang="scss">
 .active-task {
@@ -328,26 +356,25 @@ onMounted(() => {
   background-color: #f8f8f8;
   padding-bottom: 200rpx;
   padding: 30rpx;
-  
+
   .status-section {
     margin-bottom: 30rpx;
-	
-    
+
     .status-card {
       background-color: #fff;
       border-radius: 20rpx;
       padding: 30rpx;
-      
+
       .status-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 20rpx;
-        
+
         .left {
           display: flex;
           align-items: center;
-          
+
           .type-tag {
             padding: 4rpx 12rpx;
             background-color: #e6f7ff;
@@ -356,77 +383,109 @@ onMounted(() => {
             font-size: 24rpx;
             margin-right: 16rpx;
           }
-          
+
           .item-name {
             font-size: 32rpx;
             font-weight: bold;
             color: #333;
           }
         }
-        
+
         .priority-tag {
           padding: 4rpx 12rpx;
           border-radius: 4rpx;
           font-size: 24rpx;
-          
           &.priority-normal {
             background-color: #f6ffed;
             color: #52c41a;
           }
-          
           &.priority-urgent {
             background-color: #fff7e6;
             color: #fa8c16;
           }
-          
           &.priority-critical {
             background-color: #fff1f0;
             color: #f5222d;
           }
         }
       }
-      
+
       .status-info {
         display: flex;
         align-items: center;
-        
+        margin-bottom: 10rpx;
         .status-text {
           font-size: 36rpx;
           font-weight: bold;
           color: #007AFF;
           margin-right: 20rpx;
         }
-        
         .time-text {
           font-size: 24rpx;
           color: #999;
         }
       }
+      .info-row {
+        display: flex;
+        align-items: center;
+        font-size: 28rpx;
+        margin-bottom: 2rpx;
+        .label {
+          color: #888;
+          min-width: 100rpx;
+        }
+        .value {
+          color: #333;
+        }
+      }
+      .note-row {
+        display: flex;
+        align-items: flex-start;
+        margin-top: 10rpx;
+        background: #fffbe6;
+        border-radius: 10rpx;
+        padding: 10rpx 14rpx;
+        font-size: 26rpx;
+        .note-icon {
+          margin-right: 6rpx;
+          color: #faad14;
+        }
+        .note-label {
+          font-weight: bold;
+          color: #faad14;
+          margin-right: 4rpx;
+        }
+        .note-content {
+          color: #8c6f1a;
+          word-break: break-all;
+          flex: 1;
+        }
+      }
     }
   }
-  
+
   .progress-section {
     background-color: #fff;
     border-radius: 20rpx;
     padding: 30rpx;
     margin-bottom: 30rpx;
-    
+
     .section-title {
       font-size: 32rpx;
       font-weight: bold;
       color: #333;
       margin-bottom: 30rpx;
     }
-    
+
     .node-list {
       position: relative;
-      
+
       .node-item {
         position: relative;
         display: flex;
         align-items: flex-start;
         padding-bottom: 40rpx;
-        
+
         .node-line {
           position: absolute;
           left: 19rpx;
@@ -434,20 +493,8 @@ onMounted(() => {
           width: 2rpx;
           height: 80rpx;
           background-color: #ddd;
-          
-          &::after {
-            content: '';
-            position: absolute;
-            left: -4rpx;
-            bottom: 0;
-            width: 10rpx;
-            height: 10rpx;
-            background-color: #fff;
-            border: 2rpx solid #ddd;
-            border-radius: 50%;
-          }
         }
-        
+
         .node-dot {
           width: 40rpx;
           height: 40rpx;
@@ -457,73 +504,63 @@ onMounted(() => {
           position: relative;
           z-index: 1;
         }
-        
+
         .node-info {
           flex: 1;
-          
+
           .department {
             font-size: 28rpx;
             color: #333;
             margin-bottom: 8rpx;
           }
-          
+
           .time {
             font-size: 24rpx;
             color: #666;
             margin-bottom: 8rpx;
           }
-          
+
           .status {
             font-size: 24rpx;
             color: #999;
           }
         }
-        
+
         &.completed {
           .node-line {
             background-color: #52c41a;
-            
-            &::after {
-              background-color: #52c41a;
-              border-color: #52c41a;
-            }
           }
-          
+
           .node-dot {
             background-color: #52c41a;
           }
-          
+
           .node-info {
             .status {
               color: #52c41a;
             }
           }
         }
-        
+
         &.current {
           .node-line {
             background-color: #007AFF;
-            
-            &::after {
-              background-color: #007AFF;
-              border-color: #007AFF;
-            }
           }
-          
+
           .node-dot {
             background-color: #007AFF;
           }
-          
+
           .node-info {
             .status {
               color: #007AFF;
             }
           }
         }
-        
+
         &:last-child {
           padding-bottom: 0;
-          
+
           .node-line {
             display: none;
           }
@@ -531,7 +568,7 @@ onMounted(() => {
       }
     }
   }
-  
+
   .action-section {
     position: fixed;
     left: 0;
@@ -556,25 +593,25 @@ onMounted(() => {
       }
     }
   }
-  
+
   .empty-state {
     display: flex;
     flex-direction: column;
     align-items: center;
     padding-top: 200rpx;
-    
+
     image {
       width: 200rpx;
       height: 200rpx;
       margin-bottom: 20rpx;
     }
-    
+
     text {
       color: #999;
       font-size: 28rpx;
       margin-bottom: 40rpx;
     }
-    
+
     .nav-btn {
       width: 240rpx;
       height: 80rpx;
@@ -583,7 +620,7 @@ onMounted(() => {
       color: #fff;
       font-size: 28rpx;
       border-radius: 40rpx;
-      
+
       &:active {
         opacity: 0.8;
       }
@@ -597,56 +634,56 @@ onMounted(() => {
   background-color: #fff;
   border-radius: 20rpx;
   overflow: hidden;
-  
+
   .popup-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 30rpx;
     border-bottom: 2rpx solid #f0f0f0;
-    
+
     .title {
       font-size: 32rpx;
       font-weight: bold;
       color: #333;
     }
-    
+
     .close-btn {
       font-size: 48rpx;
       color: #999;
       padding: 0 20rpx;
     }
   }
-  
+
   .popup-content {
     padding: 30rpx;
-    
+
     .camera-box {
       width: 100%;
       height: 400rpx;
       background-color: #000;
       margin-bottom: 20rpx;
       overflow: hidden;
-      
+
       camera,
       image {
         width: 100%;
         height: 100%;
       }
     }
-    
+
     .tip-text {
       text-align: center;
       font-size: 28rpx;
       color: #666;
     }
-    
+
     .btn-group {
       display: flex;
       justify-content: center;
       gap: 20rpx;
       margin-top: 30rpx;
-      
+
       .photo-btn {
         width: 200rpx;
         height: 80rpx;
@@ -655,12 +692,12 @@ onMounted(() => {
         color: #666;
         font-size: 28rpx;
         border-radius: 40rpx;
-        
+
         &.confirm {
           background-color: #007AFF;
           color: #fff;
         }
-        
+
         &:active {
           opacity: 0.8;
         }
@@ -668,4 +705,4 @@ onMounted(() => {
     }
   }
 }
-</style> 
+</style>

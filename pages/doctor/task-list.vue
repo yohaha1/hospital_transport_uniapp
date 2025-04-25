@@ -48,11 +48,15 @@
             <text class="type-tag">{{ item.task.itemtype }}</text>
             <text class="item-name">{{ item.task.itemname }}</text>
           </view>
-          <text class="priority-tag" :class="getPriorityClass(priorityMap[item.task.priority])">
-            {{ getPriorityText(priorityMap[item.task.priority]) }}
+          <text class="status-tag" :class="getStatusClass(item.task.status)">
+            {{ getStatusText(item.task.status) }}
           </text>
         </view>
         <view class="task-info">
+          <view class="info-row">
+            <text class="label">创建者：</text>
+            <text class="value">{{ item.doctorName || '—' }}</text>
+          </view>			
           <view class="info-row">
             <text class="label">运送员：</text>
             <text class="value">{{ item.transporterName || '—' }}</text>
@@ -62,16 +66,16 @@
             <text class="value">{{ formatTime(item.task.createtime) }}</text>
           </view>
           <view class="info-row">
-            <text class="label">当前位置：</text>
-            <text class="value">{{ item.task.currentNode?.department || '-' }}</text>
+            <text class="label">优先级：</text>
+            <text class="value">{{ getPriorityText(priorityMap[item.task.priority]) }}</text>
           </view>
         </view>
-        <view class="task-footer">
+<!--        <view class="task-footer">
           <view class="progress-info">
             <text class="completed">{{ item.task.completedNodes || 0 }}</text>
             <text class="total">/{{ item.task.nodes?.length || 0 }} 个节点</text>
           </view>
-        </view>
+        </view> -->
       </view>
       
       <!-- 加载状态 -->
@@ -135,14 +139,13 @@ const priorityMap = {
   2: 'critical'
 }
 
-//获取优先级样式
-const getPriorityClass = priority => {
+const getStatusClass = status => {
   const classes = {
-    normal: 'priority-normal',
-    urgent: 'priority-urgent',
-    critical: 'priority-critical'
+    NEW: 'status-pending',
+    TRANSPORTING: 'status-processing',
+    DELIVERED: 'status-completed'
   }
-  return classes[priorityMap[priority] || priority] || ''
+  return classes[status] || ''
 }
 
 //获取优先级文本
@@ -244,17 +247,17 @@ const loadMore = () => {
 const showTaskDetail = async (item) => {
   try {
     const nodesRes = await taskApi.getTaskNodes(item.task.taskid)
-	console.log("testtttttttttt",nodesRes)
+	// console.log("testtttttttttt",nodesRes)
     const nodes = nodesRes.map(n => ({
       ...n.node,
-      department: n.department.departmentname,
-      departmentAddress: n.department.address,
+      departmentname: n.department.departmentname,
+      address: n.department.address,
     }))
-	console.log("tttttttttttttttttt",nodes)
+	console.log("任务节点序列：",nodes)
     currentTask.value = {
       ...item.task,
-	  departmentName: item.department.departmentname,
-	  departmentAddress:item.department.address,
+	  transporterName:item.transporterName,
+	  doctorName:item.doctorName,
       nodes,
     }
     taskDetailPopup.value.open()
@@ -421,26 +424,6 @@ onShow(() => {
           color: #666;
         }
       }
-	  .priority-tag {
-	    padding: 4rpx 12rpx;
-	    border-radius: 4rpx;
-	    font-size: 24rpx;
-	    
-	    &.priority-normal {
-	      background-color: #f6ffed;
-	      color: #52c41a;
-	    }
-	    
-	    &.priority-urgent {
-	      background-color: #fff7e6;
-	      color: #fa8c16;
-	    }
-	    
-	    &.priority-critical {
-	      background-color: #fff1f0;
-	      color: #f5222d;
-	    }
-	  }
     }
     
     .task-info {
@@ -579,9 +562,6 @@ onShow(() => {
             color: #333;
             font-size: 28rpx;
             
-            &.priority-normal,
-            &.priority-urgent,
-            &.priority-critical,
             &.status-pending,
             &.status-accepted,
             &.status-processing,

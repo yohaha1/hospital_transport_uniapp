@@ -66,12 +66,12 @@ export default {
   
   // 获取运送员任务记录
   getTransporterTaskRecords(transporterId, params) {
+	const query = {};
+	if (params.status && params.status !== 'ALL') query.status = params.status;
+	if (params.startDate) query.startDate = params.startDate;
+	if (params.endDate) query.endDate = params.endDate;
     return request.get(`/records/transporter/${transporterId}`, {
-      data: { 
-        status: params.status,
-        startDate: params.startDate,
-        endDate: params.endDate
-      }
+      data: query
     });
   },
 
