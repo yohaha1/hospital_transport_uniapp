@@ -18,6 +18,15 @@ export default {
     return request.get(`/user/getByUsername/${username}`);
   },
   
+  changePassword(userid, oldPwd, newPwd){
+	  return request.post('/user/changePassword',
+	   {
+		   userId:userid,
+		   oldPassword:oldPwd,
+		   newPassword:newPwd
+	   })
+  },
+  
 
   // 添加用户（管理员）
   addUser(user) {

@@ -305,24 +305,23 @@ onShow(() => {
 .task-list {
   min-height: 100vh;
   background-color: #f8f8f8;
-  
+  // 移除或减小 padding-top，避免顶部过大
+  padding-top: 0; // 原本可能有 padding-top: 88rpx
+
   .filter-section {
     background-color: #fff;
-    padding: 20rpx 0;
+    padding: 12rpx 0 0 0;
     position: fixed;
-	padding-top: 88rpx; 
     top: 0;
     left: 0;
     right: 0;
-    z-index: 100;
-    
+    z-index: 200; // 提高层级，防止被弹窗遮挡
+
     .filter-scroll {
       white-space: nowrap;
-      
       .filter-list {
         display: inline-flex;
         padding: 0 20rpx;
-        
         .filter-item {
           padding: 10rpx 30rpx;
           margin-right: 20rpx;
@@ -330,20 +329,16 @@ onShow(() => {
           font-size: 28rpx;
           color: #666;
           background-color: #f5f5f5;
-          
           &.active {
             color: #fff;
             background-color: #007AFF;
           }
-          
           &:last-child {
             margin-right: 0;
           }
         }
       }
     }
-  }
-      /* 新增时间筛选样式 */
     .date-filter {
       display: flex;
       justify-content: space-between;
@@ -359,11 +354,16 @@ onShow(() => {
         margin-right: 10rpx;
       }
     }
-  
+  }
+
   .task-scroll {
-	height: calc(100vh - 100rpx - 100rpx); // 减去顶部和底部
-	margin-top: 150rpx; // 这里要和 .filter-section 的高度一致
-	padding: 20rpx;
+    // 计算高度：顶部筛选高度 + tabBar高度（80rpx左右），可根据实际调整
+    height: calc(100vh - 150rpx - 100rpx); // 150rpx: 筛选区高度，100rpx: tabBar高度
+    margin-top: 130rpx; // 跟筛选区高度对应，避免被遮住，实际可调
+    padding: 20rpx;
+    box-sizing: border-box;
+    // 留出底部tabBar空间
+    margin-bottom: 100rpx;
   }
   
   .task-item {
@@ -512,6 +512,8 @@ onShow(() => {
   background-color: #fff;
   border-radius: 40rpx 40rpx 0 0;
   max-height: 80vh;
+  position: relative;
+  z-index: 1001;
   
   .detail-header {
     display: flex;
@@ -519,6 +521,10 @@ onShow(() => {
     align-items: center;
     padding: 30rpx;
     border-bottom: 2rpx solid #f0f0f0;
+    position: sticky;
+    top: 0;
+    background: #fff;
+    z-index: 2;
     
     .title {
       font-size: 32rpx;
@@ -530,12 +536,15 @@ onShow(() => {
       font-size: 48rpx;
       color: #999;
       padding: 0 20rpx;
+      z-index: 10;
+      cursor: pointer;
     }
   }
   
   .detail-content {
     max-height: calc(80vh - 200rpx);
     padding: 30rpx;
+    overflow-y: auto;
     
     .detail-section {
       margin-bottom: 40rpx;

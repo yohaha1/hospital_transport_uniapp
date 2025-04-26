@@ -45,7 +45,7 @@
           <text class="value">{{ formatTime(task.completion) }}</text>
         </view>
         <!-- 任务备注 -->
-        <view class="((note-row))" v-if="task.note">
+        <view class="note-row" v-if="task.note">
           <text class="note-icon">📝</text>
           <text class="note-label">备注：</text>
           <text class="note-content">{{ task.note }}</text>
@@ -76,6 +76,22 @@
           </view>
         </view>
       </view>
+	  
+		<!-- 地图区域 -->
+		<view class="detail-section map-card">
+		  <view class="section-title">运送实时定位</view>
+		  <!-- 腾讯地图组件，uni-app 支持 <map> 组件，支持微信小程序、H5、App等平台 -->
+		  <map
+			:longitude="currentLocation.longitude"
+			:latitude="currentLocation.latitude"
+			:markers="markers"
+			:scale="16"
+			style="width: 100%; height: 360rpx;"
+			show-location
+		  />
+		  <view v-if="!mapLoaded" style="text-align:center; color:#aaa; font-size:24rpx;">地图加载中...</view>
+		</view>
+	  
     </scroll-view>
     <view class="detail-footer">
       <slot name="footer">
@@ -89,16 +105,14 @@
   </view>
 </template>
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, watch, toRaw, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-	
+
+
 const props = defineProps({
   task: Object,
   userRole: String
 })
-// 打印传入 task 的变化
-import { watch } from 'vue'
-import { toRaw } from 'vue'
 
 watch(
   () => props.task,
@@ -142,6 +156,74 @@ const formatTime = (time) => {
   const pad = n => n < 10 ? '0' + n : n
   return `${date.getMonth()+1}月${date.getDate()}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
+
+// 地图相关
+const currentLocation = ref({
+  longitude: 113.324520, // 默认经纬度，可为医院大致位置
+  latitude: 23.099994
+})
+const mapLoaded = ref(false)
+const markers = ref([])
+
+/**
+ * 获取当前位置（高德/腾讯地图都支持 uni.getLocation）
+ */
+const fetchCurrentLocation = () => {
+  uni.getLocation({
+    type: 'gcj02', // 腾讯/高德都推荐gcj02
+    success: (res) => {
+      currentLocation.value.longitude = res.longitude
+      currentLocation.value.latitude = res.latitude
+      mapLoaded.value = true
+      markers.value = [
+        {
+          id: 1,
+          latitude: res.latitude,
+          longitude: res.longitude,
+          title: '我的位置',
+          iconPath: '/static/marker-person.png',
+          width: 32,
+          height: 32,
+          callout: { content: '我的位置', display: 'ALWAYS' }
+        }
+      ]
+    },
+    fail: () => {
+      mapLoaded.value = true
+    }
+  })
+}
+
+onMounted(() => {
+  fetchCurrentLocation()
+})
+
+// 监听扫码定位（后续拓展：根据二维码内容解析经纬度，动态设置currentLocation/markers）
+watch(
+  () => props.task,
+  (newTask) => {
+    // 可在此根据 task 及二维码经纬度信息，追加/更新markers
+    // 示例：如果task中有transporterLocation字段
+    if (newTask && newTask.transporterLocation) {
+      const { latitude, longitude } = newTask.transporterLocation
+      markers.value = [
+        {
+          id: 1,
+          latitude,
+          longitude,
+          title: '运送员扫码位置',
+          iconPath: '/static/marker-person.png',
+          width: 32,
+          height: 32,
+          callout: { content: '扫码位置', display: 'ALWAYS' }
+        }
+      ]
+      currentLocation.value.latitude = latitude
+      currentLocation.value.longitude = longitude
+    }
+  },
+  { immediate: true }
+)
 
 </script>
 
@@ -345,6 +427,20 @@ const formatTime = (time) => {
       &:active { opacity: 0.8; 
       }
     }
+  }
+}
+
+.detail-section.map-card {
+  background: #fff;
+  border-radius: 20rpx;
+  margin: 0 24rpx 32rpx 24rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.03);
+  padding: 32rpx 32rpx 18rpx 32rpx;
+  .section-title {
+    font-size: 30rpx;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 20rpx;
   }
 }
 </style>

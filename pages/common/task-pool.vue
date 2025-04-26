@@ -205,10 +205,10 @@ const closeTaskDetail = () => {
 }
 
 // 接单处理
-const handleAcceptTask = async (item) => {
+const handleAcceptTask = async (task) => {
   try {
     const userInfo = uni.getStorageSync('userInfo')
-    await taskApi.acceptTask(item.task.taskid, userInfo.id)
+    await taskApi.acceptTask(task.taskid, userInfo.userid)
     uni.showToast({
       title: '接单成功',
       icon: 'success'
@@ -216,9 +216,8 @@ const handleAcceptTask = async (item) => {
     // 刷新列表
     loadTasks(true)
     // 关闭详情弹窗
-    if (taskDetailPopup.value && taskDetailPopup.value.isOpen && taskDetailPopup.value.isOpen()) {
-      closeTaskDetail()
-    }
+    closeTaskDetail()
+	
     // 跳转到进行中任务页面
     uni.navigateTo({
       url: '/pages/transporter/active-task/active-task'

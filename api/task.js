@@ -17,9 +17,7 @@ export default {
 
   // 接受任务
   acceptTask(taskId, transporterId) {
-    return request.post(`/task/accept/${taskId}`, {
-      transporterId
-    });
+	return request.post(`/task/accept/${taskId}?transporterId=${transporterId}`);
   },
 
   // 开始任务

@@ -41,6 +41,27 @@
       "style": {
         "navigationBarTitleText": "个人中心"
       }
+    },
+    {
+    	"path" : "pages/common/profile",
+    	"style" : 
+    	{
+    		"navigationBarTitleText" : ""
+    	}
+    },
+    {
+    	"path" : "pages/common/change-password",
+    	"style" : 
+    	{
+    		"navigationBarTitleText" : ""
+    	}
+    },
+    {
+    	"path" : "pages/common/about",
+    	"style" : 
+    	{
+    		"navigationBarTitleText" : ""
+    	}
     }
   ],
   "globalStyle": {

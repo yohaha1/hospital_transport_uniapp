@@ -13,17 +13,17 @@
 
     <!-- 功能列表 -->
     <view class="menu-list">
-      <view class="menu-item" @click="navigateTo('/pages/user/profile')">
+      <view class="menu-item" @click="navigateTo('/pages/common/profile')">
         <text class="iconfont icon-user"></text>
         <text class="title">个人信息</text>
         <text class="arrow">></text>
       </view>
-      <view class="menu-item" @click="navigateTo('/pages/user/change-password')">
+      <view class="menu-item" @click="navigateTo('/pages/common/change-password')">
         <text class="iconfont icon-lock"></text>
         <text class="title">修改密码</text>
         <text class="arrow">></text>
       </view>
-      <view class="menu-item" @click="navigateTo('/pages/user/about')">
+      <view class="menu-item" @click="navigateTo('/pages/common/about')">
         <text class="iconfont icon-info"></text>
         <text class="title">关于我们</text>
         <text class="arrow">></text>
@@ -49,7 +49,6 @@ const userInfo = ref({})
 // 角色文本
 const roleText = computed(() => {
   const role = userInfo.value.role
-  if (role === 'nurse') return '护士'
   if (role === 'transporter') return '转运员'
   if (role === 'doctor') return '医生'
   return '未登录'
@@ -64,7 +63,6 @@ const selectedTabIndex = computed(() => {
 })
 
 function loadUserInfo() {
-  // 注意：应为 getStorageSync（不是 getStorageInfoSync）
   const info = uni.getStorageSync('userInfo')
   if (info) userInfo.value = info
 }

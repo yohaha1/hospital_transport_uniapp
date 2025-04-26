@@ -80,7 +80,10 @@ const handleLogin = async () => {
 	  console.log("获得用户信息：", userInfo)
 	  
       if (userInfo.role === 'doctor' || userInfo.role === 'transporter') {
-        uni.switchTab({ url: '/pages/common/task-pool' })
+        // setTimeout(() => {
+        //   uni.switchTab({ url: '/pages/common/task-pool' });
+        // }, 100);
+		uni.switchTab({ url: '/pages/common/task-pool' })
       } else {
         throw new Error('未知的用户角色')
       }

@@ -29,7 +29,7 @@ const responseInterceptor = (response) => {
   
   // 处理其他错误状态码
   if (response.statusCode !== 200) {
-    return Promise.reject(new Error(`请求失败: ${response.statusCode}`));
+    return Promise.reject(new Error(`请求失败: ${response.data.error}`));
   }
   
   // 处理ApiResponse格式的响应
