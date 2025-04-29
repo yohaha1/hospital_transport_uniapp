@@ -1,4 +1,5 @@
-const BASE_URL = 'http://localhost:8080'; // 后端接口基础URL
+// const BASE_URL = 'http://localhost:8080'; // 后端接口基础URL
+const BASE_URL = 'https://test-159055-8-1312603417.sh.run.tcloudbase.com:8080';
 
 // 请求拦截器
 const requestInterceptor = (config) => {

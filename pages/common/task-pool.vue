@@ -1,14 +1,34 @@
 <template>
   <view class="task-pool">
-	<!-- 加号按钮 -->
-	<button
-	v-if="userRole === 'doctor'"
-	class="fab-plus"
-	@click="gotoCreateTask"
-	>
-		<text class="fab-icon">＋</text>	
-	</button>
-	  
+    <!-- 顶部统计栏 -->
+    <view class="status-summary">
+      <view class="status-item">
+        <text class="count">{{ pendingCount }}</text>
+        <text class="label">待接单</text>
+      </view>
+      <view class="status-item">
+        <text class="count">{{ transportingCount }}</text>
+        <text class="label">运送中</text>
+      </view>
+      <view class="status-item">
+        <text class="count">{{ totalTransCount }}</text>
+        <text class="label">运送员总数</text>
+      </view>
+      <view class="status-item">
+        <text class="count">{{ freeTransCount }}</text>
+        <text class="label">空闲运送员</text>
+      </view>
+    </view>
+
+    <!-- 加号按钮 -->
+    <button
+      v-if="userRole === 'doctor'"
+      class="fab-plus"
+      @click="gotoCreateTask"
+    >
+      <text class="fab-icon">＋</text>
+    </button>
+
     <!-- 任务列表 -->
     <scroll-view 
       class="task-list" 
@@ -47,7 +67,7 @@
             <text class="value">{{ formatTime(item.task.createtime) }}</text>
           </view>
         </view>
-		
+
         <!-- 状态水印 -->
         <view class="status-watermark" :class="getStatusClass(item.task.status)">
           {{ getStatusText(item.task.status) }}
@@ -60,7 +80,6 @@
         <text v-else-if="noMore">没有更多了</text>
       </view>
       <view class="empty-state" v-if="tasks.length === 0 && !isLoading">
-        <image src="/static/images/empty.png" mode="aspectFit"></image>
         <text>暂无待接单任务</text>
       </view>
     </scroll-view>
@@ -74,12 +93,13 @@
         @accept="handleAcceptTask"
       />
     </uni-popup>
+
     <tabBar :selectedIndex="0"/>
   </view>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import taskApi from '@/api/task.js'
 import userApi from '@/api/user.js'
@@ -94,28 +114,49 @@ const page = ref(1)
 const pageSize = ref(10)
 const userRole = ref('')
 const taskDetailPopup = ref(null)
+const totalTransCount = ref(0)  // 运送员总数
+const freeTransCount  = ref(0) 
 
-const priorityMap = {
-  0: 'normal',
-  1: 'urgent',
-  2: 'critical'
-}
+const priorityMap = { 0: 'normal', 1: 'urgent', 2: 'critical' }
+
+// —— 新增：计算各状态数量 —— 
+const pendingCount = computed(() => 
+  tasks.value.filter(t => t.task.status === 'NEW').length
+)
+const transportingCount = computed(() => 
+  tasks.value.filter(t => t.task.status === 'TRANSPORTING').length
+)
 
 onMounted(() => {
   loadTasks()
   getUserRole()
+  fetchTransCounts()
 })
 
 onShow(() => {
-  uni.hideTabBar({
-    animation:false
-  })
+  uni.hideTabBar({ animation: false })
 })
 
-//获取用户角色
-const getUserRole = () =>{
-	const userInfo = uni.getStorageSync('userInfo')
-	userRole.value = (userInfo.role || '').toLowerCase()
+// 获取用户角色
+const getUserRole = () => {
+  const userInfo = uni.getStorageSync('userInfo')
+  userRole.value = (userInfo.role || '').toLowerCase()
+}
+
+// 拉取运送员统计数据
+const fetchTransCounts = async () => {
+  try {
+    const res = await userApi.getFreeTransCount()
+	console.log("运送员数量：",res)
+    const counts = res  
+    totalTransCount.value = counts.all
+    freeTransCount.value  = counts.free
+  } catch (e) {
+    uni.showToast({
+      title: e.message || '统计加载失败',
+      icon: 'none'
+    })
+  }
 }
 
 // 加载任务列表
@@ -129,27 +170,20 @@ const loadTasks = async (refresh = false) => {
   isLoading.value = true
   try {
     const tmp = await taskApi.getTasksByStatus('')
-	//筛选未完成的任务
-	const res = tmp.filter(task => task.status !== 'DELIVERED');
-	console.log("任务大厅任务列表：",res)
-
+    // 过滤掉已完成，以「大厅」展示未完成
+    const res = tmp.filter(task => task.status !== 'DELIVERED')
     if (refresh) {
       tasks.value = res
     } else {
-      tasks.value = [...tasks.value, ...res]
+      tasks.value.push(...res)
     }
     noMore.value = res.length < pageSize.value
     page.value++
   } catch (error) {
-    uni.showToast({
-      title: error.message || '加载失败',
-      icon: 'none'
-    })
+    uni.showToast({ title: error.message || '加载失败', icon: 'none' })
   } finally {
     isLoading.value = false
-    if (refresh) {
-      isRefreshing.value = false
-    }
+    if (refresh) isRefreshing.value = false
   }
 }
 
@@ -160,48 +194,37 @@ const onRefresh = async () => {
 }
 
 // 上拉加载更多
-const loadMore = () => {
-  loadTasks()
-}
+const loadMore = () => loadTasks()
 
-// 跳转到创建任务页面
-const gotoCreateTask = () => {
-  uni.navigateTo({
-    url: '/pages/doctor/create-task'
-  })
-}
+// 跳转到创建任务
+const gotoCreateTask = () =>
+  uni.navigateTo({ url: '/pages/doctor/create-task' })
 
 // 显示任务详情
 const showTaskDetail = async (item) => {
   try {
-    // 获取节点数据: [{node, department}]
     const nodesRes = await taskApi.getTaskNodes(item.task.taskid)
-	
-	console.log("任务详情节点数据：",nodesRes)
     const nodes = nodesRes.map(n => ({
       ...n.node,
       departmentname: n.department.departmentname,
-	  departmentaddress: n.department.address,
+      departmentaddress: n.department.address,
     }))
-    // 传递 task属性 + departmentName + nodes
     currentTask.value = {
       ...item.task,
       departmentname: item.department.departmentname,
-	  departmentaddress:item.department.address,
+      departmentaddress: item.department.address,
       nodes
     }
     taskDetailPopup.value.open()
   } catch (e) {
-    uni.showToast({ title: e.message || "加载节点失败", icon: 'none' })
+    uni.showToast({ title: e.message || '加载节点失败', icon: 'none' })
   }
 }
 
-// 关闭任务详情
+// 关闭详情弹窗
 const closeTaskDetail = () => {
   taskDetailPopup.value.close()
-  setTimeout(() => {
-    currentTask.value = null
-  }, 200)
+  setTimeout(() => (currentTask.value = null), 200)
 }
 
 // 接单处理
@@ -209,122 +232,138 @@ const handleAcceptTask = async (task) => {
   try {
     const userInfo = uni.getStorageSync('userInfo')
     await taskApi.acceptTask(task.taskid, userInfo.userid)
-    uni.showToast({
-      title: '接单成功',
-      icon: 'success'
-    })
-    // 刷新列表
-    loadTasks(true)
-    // 关闭详情弹窗
+    uni.showToast({ title: '接单成功', icon: 'success' })
+    await loadTasks(true)
     closeTaskDetail()
-	
-    // 跳转到进行中任务页面
     uni.navigateTo({
       url: '/pages/transporter/active-task/active-task'
     })
   } catch (error) {
-    uni.showToast({
-      title: error.message || '接单失败',
-      icon: 'none'
-    })
+    uni.showToast({ title: error.message || '接单失败', icon: 'none' })
   }
 }
 
-//获取任务状态文字
-const getStatusText = (status) => {
-  const statusMap = {
-    'NEW': '待接单',
-    'TRANSPORTING': '运送中',
-    'DELIVERED': '已完成',
-  }
-  return statusMap[status] || status
+// 工具函数
+const getStatusText = (status) => ({
+  NEW: '待接单',
+  TRANSPORTING: '运送中',
+  DELIVERED: '已完成',
+}[status] || status)
+
+const getPriorityClass = (priority) => ({
+  normal: 'priority-normal',
+  urgent: 'priority-urgent',
+  critical: 'priority-critical'
+}[priority] || '')
+
+const getPriorityText = (priority) => ({
+  normal: '普通',
+  urgent: '紧急',
+  critical: '特急'
+}[priority] || '')
+
+const formatTime = (ts) => {
+  if (!ts) return ''
+  const d = new Date(ts)
+  const pad = n => n < 10 ? '0'+n : n
+  return `${d.getMonth()+1}月${d.getDate()}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-// 获取优先级样式类
-const getPriorityClass = (priority) => {
-  const classes = {
-    normal: 'priority-normal',
-    urgent: 'priority-urgent',
-    critical: 'priority-critical'
-  }
-  return classes[priority] || ''
-}
-
-// 获取优先级文本
-const getPriorityText = (priority) => {
-  const texts = {
-    normal: '普通',
-    urgent: '紧急',
-    critical: '特急'
-  }
-  return texts[priority] || ''
-}
-
-// 格式化时间
-const formatTime = (timestamp) => {
-  if (!timestamp) return ''
-  const date = new Date(timestamp)
-  const pad = n => n < 10 ? '0' + n : n
-  return `${date.getMonth() + 1}月${date.getDate()}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
-
-const getStatusClass = (status) => {
-  switch(status) {
-    case 'NEW': return 'status-new'
-    case 'TRANSPORTING': return 'status-transporting'
-    case 'DELIVERED': return 'status-delivered'
-    default: return ''
-  }
-}
-
+const getStatusClass = (status) => ({
+  NEW: 'status-new',
+  TRANSPORTING: 'status-transporting',
+  DELIVERED: 'status-delivered'
+}[status] || '')
 </script>
 
 <style lang="scss">
 .task-pool {
   min-height: 100vh;
   background-color: #f8f8f8;
-    // 浮动加号按钮
-	.fab-plus {
-	  position: fixed;
-	  right: 48rpx;
-	  bottom: 180rpx;
-	  width: 108rpx;
-	  height: 108rpx;
-	  border-radius: 50%;
-	  background: #007AFF;
-	  box-shadow: 0 8rpx 24rpx 0 rgba(0,122,255,0.20);
-	  display: flex;
-	  justify-content: center;
-	  align-items: center;
-	  z-index: 100;
-	  border: none;
-	  padding: 0;
-	  margin: 0;
-	  // 移除 line-height
-	  .fab-icon {
-		color: #fff;
-		font-size: 72rpx;
-		font-weight: bold;
-		// 保证加号字体垂直居中
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		line-height: 1; // 非常关键，避免 + 偏移
-		width: 1em;     // 可选，让宽高一致
-		height: 1em;
-		margin: 0;
-		padding: 0;
-	  }
-	  &:active {
-		opacity: 0.7;
-	  }
-	}
+
+  /* —— 顶部统计栏 —— */
+  .status-summary {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 20rpx;
+    margin: 20rpx;
+    background: #fff;
+    border-radius: 20rpx;
+    box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
+    .status-item {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 160rpx;
+      padding: 20rpx;
+      border-radius: 12rpx;
+
+      overflow: hidden;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
   
+      &:hover {
+        transform: translateY(-8rpx);
+        box-shadow: 0 12rpx 24rpx rgba(0, 0, 0, 0.12);
+      }
+      .count {
+        font-size: 36rpx;
+        font-weight: bold;
+        /* 文本渐变 */
+        background-image: linear-gradient(45deg, #4facfe, #00f2fe);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 8rpx;
+      }
+
+      .label {
+	    font-size: 24rpx;
+	    color: #555;
+      }
+    }
+  }
+
+  /* 浮动加号按钮 */
+  .fab-plus {
+    position: fixed;
+    right: 48rpx;
+    bottom: 180rpx;
+    width: 108rpx;
+    height: 108rpx;
+    border-radius: 50%;
+    background: #007AFF;
+    box-shadow: 0 8rpx 24rpx rgba(0,122,255,0.20);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    border: none;
+    padding: 0;
+    margin: 0;
+
+    .fab-icon {
+      color: #fff;
+      font-size: 72rpx;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      width: 1em;
+      height: 1em;
+      margin: 0;
+      padding: 0;
+    }
+    &:active { opacity: 0.7; }
+  }
+
   .task-list {
     height: 100vh;
     padding: 20rpx;
   }
-  
+
   .task-item {
 	position: relative; 
     background-color: #fff;

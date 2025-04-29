@@ -3,7 +3,7 @@
     <!-- 用户信息卡片 -->
     <view class="user-card">
       <view class="user-info">
-        <image class="avatar" :src="userInfo.avatar || '/static/images/default-avatar.png'" mode="aspectFill"></image>
+        <image class="avatar" :src="userInfo.avatar || '/static/images/doctor.svg'" mode="aspectFill"></image>
         <view class="info">
           <text class="name">{{ userInfo.name || '未登录' }}</text>
           <text class="role">{{ roleText }}</text>

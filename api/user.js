@@ -15,7 +15,7 @@ export default {
 
   // 根据用户名获取用户信息
   getByUsername(username) {
-    return request.get(`/user/getByUsername/${username}`);
+	  return request.get(`/user/getByUsername/${username}`);
   },
   
   changePassword(userid, oldPwd, newPwd){
@@ -27,9 +27,8 @@ export default {
 	   })
   },
   
-
-  // 添加用户（管理员）
-  addUser(user) {
-    return request.post('/user/add', user);
+  //获取运送员数量以及运送中的运送员数量
+  getFreeTransCount() {
+	  return request.get('/user/getFreeTransCount');
   }
 };

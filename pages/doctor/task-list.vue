@@ -15,17 +15,31 @@
           </view>
         </view>
       </scroll-view>
+      <view class="additional-filters">
+        <view class="filter-group">
+          <picker mode="selector" :value="itemTypeIndex" :range="itemTypeFilters" @change="handleItemTypeChange">
+            <view class="picker">
+              任务类型：{{ selectedItemType || '全部' }}
+            </view>
+          </picker>
+        </view>
+        <view class="filter-group">
+          <picker mode="selector" :value="priorityIndex" :range="priorityFilters" @change="handlePriorityChange">
+            <view class="picker">
+              优先级：{{ selectedPriority || '全部' }}
+            </view>
+          </picker>
+        </view>
+      </view>
       <view class="date-filter">
-        <picker mode="date" :value="startDate" @change="handleStartDateChange">
-          <view class="picker">
-            起始时间：{{ startDate || '选择日期' }}
-          </view>
-        </picker>
-        <picker mode="date" :value="endDate" @change="handleEndDateChange">
-          <view class="picker">
-            结束时间：{{ endDate || '选择日期' }}
-          </view>
-        </picker>
+        <!-- 日期范围选择器 -->
+        <uni-datetime-picker 
+          v-model="dateRange"
+          type="daterange"
+          start-placeholder="开始日期"
+          end-placeholder="结束日期"
+          @change="handleDateRangeChange"
+        />
       </view>
     </view>
     <!-- 任务列表 -->
@@ -39,7 +53,7 @@
     >
       <view 
         class="task-item" 
-        v-for="item in tasks" 
+        v-for="item in filteredTasks" 
         :key="item.task.taskid"
         @click="showTaskDetail(item)"
       >
@@ -70,12 +84,6 @@
             <text class="value">{{ getPriorityText(priorityMap[item.task.priority]) }}</text>
           </view>
         </view>
-<!--        <view class="task-footer">
-          <view class="progress-info">
-            <text class="completed">{{ item.task.completedNodes || 0 }}</text>
-            <text class="total">/{{ item.task.nodes?.length || 0 }} 个节点</text>
-          </view>
-        </view> -->
       </view>
       
       <!-- 加载状态 -->
@@ -85,7 +93,7 @@
       </view>
       
       <!-- 空状态 -->
-      <view class="empty-state" v-if="tasks.length === 0 && !isLoading">
+      <view class="empty-state" v-if="filteredTasks.length === 0 && !isLoading">
         <image src="/static/images/empty.png" mode="aspectFit"></image>
         <text>暂无任务记录</text>
         <button class="create-btn" @click.stop="navigateToCreate">
@@ -93,7 +101,7 @@
         </button>
       </view>
     </scroll-view>
-    <!-- 任务详情弹窗，直接复用TaskDetail组件 -->
+    <!-- 任务详情弹窗 -->
     <uni-popup ref="taskDetailPopup" type="bottom">
       <TaskDetail
         :task="currentTask"
@@ -107,7 +115,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import taskApi from '@/api/task.js'
 import TaskDetail from '@/components/TaskDetail.vue'
@@ -118,9 +126,14 @@ const statusFilters = [
   { label: '运送中', value: 'TRANSPORTING' },
   { label: '已完成', value: 'DELIVERED' }
 ]
+const itemTypeFilters = ['全部', '药品', '化验样本']
+const priorityFilters = ['全部', '普通', '紧急', '特急']
+
 const currentStatus = ref('ALL')
-const startDate = ref('')
-const endDate = ref('')
+const selectedItemType = ref('全部')
+const selectedPriority = ref('全部')
+const itemTypeIndex = ref(0)
+const priorityIndex = ref(0)
 
 const tasks = ref([])
 const page = ref(1)
@@ -131,6 +144,10 @@ const isRefreshing = ref(false)
 const currentTask = ref(null)
 const taskDetailPopup = ref(null)
 const userRole = ref('')
+
+
+// 日期范围选择
+const dateRange = ref([])
 
 // 优先级映射
 const priorityMap = {
@@ -148,7 +165,6 @@ const getStatusClass = status => {
   return classes[status] || ''
 }
 
-//获取优先级文本
 const getPriorityText = priority => {
   const texts = {
     normal: '普通',
@@ -158,7 +174,6 @@ const getPriorityText = priority => {
   return texts[priorityMap[priority] || priority] || ''
 }
 
-//获取状态文本
 const getStatusText = status => {
   const texts = {
     NEW: '待接单',
@@ -175,6 +190,24 @@ const formatTime = ts => {
   return `${date.getMonth() + 1}月${date.getDate()}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
+const filteredTasks = computed(() => {
+  return tasks.value.filter(task => {
+    const matchesStatus = currentStatus.value === 'ALL' || task.task.status === currentStatus.value
+    const matchesItemType = selectedItemType.value === '全部' || task.task.itemtype === selectedItemType.value
+    const matchesPriority = selectedPriority.value === '全部' || getPriorityText(priorityMap[task.task.priority]) === selectedPriority.value
+    return matchesStatus && matchesItemType && matchesPriority
+  })
+})
+
+// 时间筛选
+const handleDateRangeChange = (e) => {
+  const [start, end] = e
+  dateRange.value.start = start
+  dateRange.value.end = end
+  console.log("testttttttttttttttt",dateRange.value.start)
+  loadTasks(true)
+}
+
 // 加载任务列表
 const loadTasks = async (refresh = false) => {
   if (refresh) {
@@ -189,12 +222,10 @@ const loadTasks = async (refresh = false) => {
     userRole.value = (userInfo.role || '').toLowerCase()
     const params = {
       status: currentStatus.value === 'ALL' ? null : currentStatus.value,
-      startDate: startDate.value,
-      endDate: endDate.value
+      startDate: dateRange.value.start,
+      endDate: dateRange.value.end
     }
     const res = await taskApi.getDepartmentTasks(userInfo.departmentid, params)
-	console.log("task list 部门任务列表 ",res)
-    
     if (refresh) {
       tasks.value = res
     } else {
@@ -215,21 +246,25 @@ const loadTasks = async (refresh = false) => {
   }
 }
 
-// 时间筛选
-const handleStartDateChange = e => {
-  startDate.value = e.detail.value
-  loadTasks(true)
-}
-const handleEndDateChange = e => {
-  endDate.value = e.detail.value
-  loadTasks(true)
-}
+
 
 // 状态筛选
 const handleFilterChange = status => {
   if (currentStatus.value === status) return
   currentStatus.value = status
   loadTasks(true)
+}
+
+//类型筛选
+const handleItemTypeChange = e => {
+  itemTypeIndex.value = e.detail.value
+  selectedItemType.value = itemTypeFilters[itemTypeIndex.value]
+}
+
+//优先级筛选
+const handlePriorityChange = e => {
+  priorityIndex.value = e.detail.value
+  selectedPriority.value = priorityFilters[priorityIndex.value]
 }
 
 // 下拉刷新
@@ -243,21 +278,19 @@ const loadMore = () => {
   loadTasks()
 }
 
-// 弹窗展示任务详情，全部复用TaskDetail
+// 弹窗展示任务详情
 const showTaskDetail = async (item) => {
   try {
     const nodesRes = await taskApi.getTaskNodes(item.task.taskid)
-	// console.log("testtttttttttt",nodesRes)
     const nodes = nodesRes.map(n => ({
       ...n.node,
       departmentname: n.department.departmentname,
       address: n.department.address,
     }))
-	console.log("任务节点序列：",nodes)
     currentTask.value = {
       ...item.task,
-	  transporterName:item.transporterName,
-	  doctorName:item.doctorName,
+      transporterName: item.transporterName,
+      doctorName: item.doctorName,
       nodes,
     }
     taskDetailPopup.value.open()
@@ -277,10 +310,8 @@ const closeTaskDetail = () => {
   }, 200)
 }
 
-// 可扩展：接单逻辑（如需）
-const handleAcceptTask = async (task) => {
-  // 按需实现
-}
+//医生页面，无需任务交接
+const handleAcceptTask = async (task) => {}
 
 // 新建任务
 const navigateToCreate = () => {
@@ -300,22 +331,42 @@ onShow(() => {
 })
 </script>
 
+<style scoped>
+.filter-group {
+  display: inline-block;
+  margin-right: 20rpx;
+}
+
+.additional-filters {
+  display: flex;
+  justify-content: space-between;
+  padding: 10rpx;
+}
+
+.picker {
+  font-size: 28rpx;
+  color: #666;
+  padding: 10rpx 20rpx;
+  border: 1rpx solid #ddd;
+  border-radius: 8rpx;
+  background: #f3f3f3;
+}
+</style>
 
 <style lang="scss">
 .task-list {
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
-  background-color: #f8f8f8;
-  // 移除或减小 padding-top，避免顶部过大
-  padding-top: 0; // 原本可能有 padding-top: 88rpx
+  background: #f8f8f8;
 
   .filter-section {
-    background-color: #fff;
-    padding: 12rpx 0 0 0;
     position: fixed;
-    top: 0;
+    top: 10;
     left: 0;
     right: 0;
-    z-index: 200; // 提高层级，防止被弹窗遮挡
+    z-index: 100;
+    background: #fff;
 
     .filter-scroll {
       white-space: nowrap;
@@ -357,13 +408,13 @@ onShow(() => {
   }
 
   .task-scroll {
-    // 计算高度：顶部筛选高度 + tabBar高度（80rpx左右），可根据实际调整
-    height: calc(100vh - 150rpx - 100rpx); // 150rpx: 筛选区高度，100rpx: tabBar高度
-    margin-top: 130rpx; // 跟筛选区高度对应，避免被遮住，实际可调
-    padding: 20rpx;
+    flex: 1;
+    margin-top: 160rpx; /* 适配筛选栏高度 */
+    margin-bottom: 110rpx; /* 适配tabBar高度 */
+    overflow-y: auto;
+    min-height: 0;
     box-sizing: border-box;
-    // 留出底部tabBar空间
-    margin-bottom: 100rpx;
+    padding: 20rpx 0 0 0;
   }
   
   .task-item {

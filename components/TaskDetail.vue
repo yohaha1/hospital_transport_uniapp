@@ -229,11 +229,19 @@ watch(
 
 <style scoped lang="scss">
 .task-detail {
-  position: relative;
   background-color: #fff;
   border-radius: 40rpx 40rpx 0 0;
-  overflow: hidden;
-  margin-bottom: 80px;
+  max-height: 80vh;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2000; 
+  display: flex;
+  flex-direction: column;
+  
+  position: relative;
+  // overflow: hidden;
+  margin-bottom: 20px;
 
   .detail-header {
     display: flex;
@@ -241,10 +249,16 @@ watch(
     align-items: center;
     padding: 30rpx;
     border-bottom: 2rpx solid #f0f0f0;
+    background: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 10;
     .title {
-      font-size: 32rpx;
-      font-weight: bold;
-      color: #333;
+      font-size: 48rpx;
+      color: #999;
+      padding: 0 20rpx;
+      z-index: 15;
+      cursor: pointer;
     }
     .close-btn {
       font-size: 48rpx;
@@ -253,9 +267,10 @@ watch(
     }
   }
   .detail-content {
-    max-height: 65vh;
-    padding: 30rpx 0 110rpx 0;
+    flex: 1;
     overflow-y: auto;
+    min-height: 0;
+    padding: 30rpx 0 110rpx 0;;
     .detail-section {
       margin-bottom: 32rpx;
       &.basic-card {
@@ -408,10 +423,10 @@ watch(
     }
   }
   .detail-footer {
-    position: absolute;
+    position: sticky;
+    bottom: 0;
     left: 0;
     right: 0;
-    bottom: 0;
     padding: 24rpx 30rpx;
     background: #fff;
     border-top: 2rpx solid #f0f0f0;

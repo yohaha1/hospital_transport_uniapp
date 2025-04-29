@@ -3,7 +3,7 @@
     <!-- 顶部返回栏可根据需要添加 -->
     <view class="profile-card">
       <view class="avatar-box">
-        <image class="avatar" :src="userInfo.avatar || '/static/images/default-avatar.png'" mode="aspectFill" />
+        <image class="avatar" :src="userInfo.avatar || '/static/images/doctor.svg'" mode="aspectFill" />
       </view>
       <view class="user-name">{{ userInfo.name || userInfo.username || '未登录' }}</view>
       <view class="role-badge">{{ roleText }}</view>

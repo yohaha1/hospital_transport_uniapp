@@ -1,7 +1,7 @@
 <template>
   <view class="login-container">
     <view class="login-header">
-      <image class="logo" src="/static/logo.png" mode="aspectFit"></image>
+      <image class="logo" src="/static/images/logo.png" mode="aspectFit"></image>
       <text class="title">医院运输管理系统</text>
     </view>
     <view class="login-form">
@@ -18,7 +18,7 @@
         <text class="label">密码</text>
         <input 
           class="input" 
-          type="password" 
+          :password="true" 
           v-model="password" 
           placeholder="请输入密码"
         />
@@ -36,7 +36,6 @@ const username = ref('')
 const password = ref('')
 const loading = ref(false)
 
-// 微信小程序兼容 Base64URL 解码 JWT payload
 function decodeJwtPayload(payload) {
   let base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
   while (base64.length % 4) base64 += '='
