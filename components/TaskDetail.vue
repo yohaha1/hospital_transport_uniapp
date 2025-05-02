@@ -77,10 +77,24 @@
         </view>
       </view>
 	  
+      <!-- 附件图片卡片 -->
+      <view class="detail-section file-card" v-if="task.files && task.files.length">
+        <view class="section-title">附件图片</view>
+        <scroll-view scroll-x class="image-list">
+          <image
+            v-for="file in task.files"
+            :key="file.fileid"
+            :src="getFileUrl(file.filepath)"
+            mode="aspectFill"
+            class="thumb"
+			@click="previewImage(index)"
+          />
+        </scroll-view>
+      </view>	  
+	  
 		<!-- 地图区域 -->
 		<view class="detail-section map-card">
 		  <view class="section-title">运送实时定位</view>
-		  <!-- 腾讯地图组件，uni-app 支持 <map> 组件，支持微信小程序、H5、App等平台 -->
 		  <map
 			:longitude="currentLocation.longitude"
 			:latitude="currentLocation.latitude"
@@ -105,7 +119,7 @@
   </view>
 </template>
 <script setup>
-import { ref, watch, toRaw, onMounted } from 'vue'
+import { ref, watch, toRaw, onMounted, defineProps } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 
 
@@ -126,6 +140,21 @@ const priorityMap = {
   0: 'normal',
   1: 'urgent',
   2: 'critical'
+}
+
+// 映射后端本地存储路径到可访问的静态资源 URL
+function getFileUrl(filePath) {
+  const filename = filePath.split('/').pop()
+  return `http://localhost:8080/files/${props.task.taskid}/${filename}`
+}
+const previewImage = (currentIndex) => {
+  const urls = props.task.files.map(file => getFileUrl(file.filepath))
+  uni.previewImage({
+    current: currentIndex, // 当前点击图片索引
+    urls: urls, // 所有图片URL列表
+    indicator: 'default', // 显示指示器
+    loop: true // 支持循环预览
+  })
 }
 
 const getPriorityClass = (priority) => {
@@ -273,6 +302,19 @@ watch(
     padding: 30rpx 0 110rpx 0;;
     .detail-section {
       margin-bottom: 32rpx;
+      &.file-card {
+        background: #fff;
+        border-radius: 20rpx;
+        margin: 0 24rpx 32rpx;
+        padding: 32rpx 24rpx;
+        box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.03);
+        .section-title {
+          font-size: 30rpx;
+          font-weight: bold;
+          color: #333;
+          margin-bottom: 20rpx;
+        }
+	}
       &.basic-card {
         background: #fafbfc;
         border-radius: 20rpx;

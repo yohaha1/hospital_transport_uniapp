@@ -209,11 +209,15 @@ const showTaskDetail = async (item) => {
       departmentname: n.department.departmentname,
       departmentaddress: n.department.address,
     }))
+	
+	const files = await taskApi.getFiles(item.task.taskid);
+	
     currentTask.value = {
       ...item.task,
       departmentname: item.department.departmentname,
       departmentaddress: item.department.address,
-      nodes
+      nodes,
+	  files 
     }
     taskDetailPopup.value.open()
   } catch (e) {
@@ -283,11 +287,15 @@ const getStatusClass = (status) => ({
 
   /* —— 顶部统计栏 —— */
   .status-summary {
+    position: fixed;       /* 固定在顶部 */
+    top: 10;
+    left: 0;
+    right: 0;
+    z-index: 9;
     display: flex;
     justify-content: space-around;
     align-items: center;
-    padding: 20rpx;
-    margin: 20rpx;
+    padding: 20rpx 20rpx 0;
     background: #fff;
     border-radius: 20rpx;
     box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
@@ -338,7 +346,7 @@ const getStatusClass = (status) => ({
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 100;
+    z-index: 9;
     border: none;
     padding: 0;
     margin: 0;
@@ -360,8 +368,9 @@ const getStatusClass = (status) => ({
   }
 
   .task-list {
+	padding-top: 160rpx;
     height: 100vh;
-    padding: 20rpx;
+    
   }
 
   .task-item {

@@ -4,9 +4,9 @@
     <view class="filter-section">
       <scroll-view class="filter-scroll" scroll-x>
         <view class="filter-list">
-          <view 
-            class="filter-item" 
-            v-for="(item, index) in statusFilters" 
+          <view  
+            class="filter-item"  
+            v-for="(item, index) in statusFilters"  
             :key="index"
             :class="{ active: currentStatus === item.value }"
             @click="handleFilterChange(item.value)"
@@ -15,18 +15,31 @@
           </view>
         </view>
       </scroll-view>
+      <view class="additional-filters">
+        <view class="filter-group">
+          <picker mode="selector" :value="itemTypeIndex" :range="itemTypeFilters" @change="handleItemTypeChange">
+            <view class="picker">
+              任务类型：{{ selectedItemType }}
+            </view>
+          </picker>
+        </view>
+        <view class="filter-group">
+          <picker mode="selector" :value="priorityIndex" :range="priorityFilters" @change="handlePriorityChange">
+            <view class="picker">
+              优先级：{{ selectedPriority }}
+            </view>
+          </picker>
+        </view>
+      </view>
       <!-- 时间筛选区域 -->
       <view class="date-filter">
-        <picker mode="date" :value="startDate" @change="handleStartDateChange">
-          <view class="picker">
-            起始时间：{{ startDate || '选择日期' }}
-          </view>
-        </picker>
-        <picker mode="date" :value="endDate" @change="handleEndDateChange">
-          <view class="picker">
-            结束时间：{{ endDate || '选择日期' }}
-          </view>
-        </picker>
+        <uni-datetime-picker 
+          v-model="dateRange"
+          type="daterange"
+          start-placeholder="开始日期"
+          end-placeholder="结束日期"
+          @change="handleDateRangeChange"
+        />
       </view>
     </view>
     <!-- 任务列表 -->
@@ -40,7 +53,7 @@
     >
       <view 
         class="task-item" 
-        v-for="item in tasks" 
+        v-for="item in filteredTasks" 
         :key="item.task.taskid"
         @click="showTaskDetail(item)"
       >
@@ -76,17 +89,17 @@
         </view>
       </view>
       <!-- 加载状态 -->
-      <view class="loading-status" v-if="tasks.length > 0">
+      <view class="loading-status" v-if="filteredTasks.length > 0">
         <text v-if="isLoading">加载中...</text>
         <text v-else-if="noMore">没有更多了</text>
       </view>
       <!-- 空状态 -->
-      <view class="empty-state" v-if="tasks.length === 0 && !isLoading">
+      <view class="empty-state" v-if="filteredTasks.length === 0 && !isLoading">
         <image src="/static/images/empty.png" mode="aspectFit"></image>
         <text>暂无历史任务记录</text>
       </view>
     </scroll-view>
-    <!-- 任务详情弹窗（组件方式） -->
+    <!-- 任务详情弹窗 -->
     <uni-popup ref="taskDetailPopup" type="bottom">
       <TaskDetail
         :task="currentTask"
@@ -99,171 +112,139 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import taskApi from '@/api/task.js'
 import TaskDetail from '@/components/TaskDetail.vue'
 
-const statusFilters = [
+const statusFilters    = [
   { label: '全部', value: 'ALL' },
+  { label: '运送中', value: 'TRANSPORTING' },
   { label: '已完成', value: 'DELIVERED' },
-  { label: '已取消', value: 'CANCELLED' }
 ]
-const currentStatus = ref('ALL')
-const startDate = ref('')
-const endDate = ref('')
-const tasks = ref([])
-const page = ref(1)
-const pageSize = ref(10)
-const isLoading = ref(false)
-const noMore = ref(false)
+const itemTypeFilters  = ['全部', '药品', '化验样本']
+const priorityFilters  = ['全部', '普通', '紧急', '特急']
+
+const currentStatus    = ref('ALL')
+const selectedItemType = ref('全部')
+const selectedPriority = ref('全部')
+const itemTypeIndex    = ref(0)
+const priorityIndex    = ref(0)
+const dateRange        = ref([])
+
+const tasks        = ref([])
+const page         = ref(1)
+const pageSize     = ref(10)
+const isLoading    = ref(false)
+const noMore       = ref(false)
 const isRefreshing = ref(false)
-const currentTask = ref(null)
+const currentTask  = ref(null)
 const taskDetailPopup = ref(null)
 
-// --- 逻辑与原有一致 ---
+const filteredTasks = computed(() => {
+  return tasks.value.filter(item => {
+    if (currentStatus.value !== 'ALL' && item.task.status !== currentStatus.value) return false
+    if (selectedItemType.value !== '全部' && item.task.itemtype !== selectedItemType.value) return false
+    const pText = ['普通','紧急','特急'][item.task.priority] || ''
+    if (selectedPriority.value !== '全部' && pText !== selectedPriority.value) return false
+    if (dateRange.value.length === 2) {
+      const t = new Date(item.task.createtime).getTime()
+      const s = new Date(dateRange.value[0]).getTime()
+      const e = new Date(dateRange.value[1]).getTime()
+      if (t < s || t > e) return false
+    }
+    return true
+  })
+})
+
 const loadTasks = async (refresh = false) => {
   if (refresh) {
     page.value = 1
     noMore.value = false
   }
   if (isLoading.value || noMore.value) return
-
   isLoading.value = true
   try {
     const userInfo = uni.getStorageSync('userInfo')
     const params = {
       status: currentStatus.value === 'ALL' ? null : currentStatus.value,
-      startDate: startDate.value,
-      endDate: endDate.value
+      startDate: dateRange.value[0] || null,
+      endDate:   dateRange.value[1] || null
     }
     const res = await taskApi.getTransporterTaskRecords(userInfo.userid, params)
-    if (refresh) {
-      tasks.value = res
-    } else {
-      tasks.value = [...tasks.value, ...res]
-    }
-    noMore.value = res.length < pageSize.value
+    tasks.value = refresh ? res : [...tasks.value, ...res]
+    noMore.value  = res.length < pageSize.value
     page.value++
   } catch (error) {
-    uni.showToast({
-      title: error.message || '加载失败',
-      icon: 'none'
-    })
+    uni.showToast({ title: error.message || '加载失败', icon: 'none' })
   } finally {
     isLoading.value = false
-    if (refresh) {
-      isRefreshing.value = false
-    }
+    if (refresh) isRefreshing.value = false
   }
 }
 
-const handleStartDateChange = e => {
-  startDate.value = e.detail.value
-  loadTasks(true)
-}
-const handleEndDateChange = e => {
-  endDate.value = e.detail.value
-  loadTasks(true)
-}
-const handleFilterChange = status => {
-  if (currentStatus.value === status) return
-  currentStatus.value = status
-  loadTasks(true)
-}
-const onRefresh = async () => {
-  isRefreshing.value = true
-  await loadTasks(true)
-}
-const loadMore = () => {
-  loadTasks()
-}
+const handleFilterChange     = status => { currentStatus.value = status; loadTasks(true) }
+const handleItemTypeChange   = e      => { itemTypeIndex.value = e.detail.value; selectedItemType.value = itemTypeFilters[itemTypeIndex.value]; loadTasks(true) }
+const handlePriorityChange   = e      => { priorityIndex.value = e.detail.value; selectedPriority.value = priorityFilters[priorityIndex.value]; loadTasks(true) }
+const handleDateRangeChange  = ()     => loadTasks(true)
+const onRefresh              = async () => { isRefreshing.value = true; await loadTasks(true) }
+const loadMore               = ()     => loadTasks()
 
-const showTaskDetail = async (item) => {
+const showTaskDetail = async item => {
   try {
     const nodesRes = await taskApi.getTaskNodes(item.task.taskid)
-    const nodes = nodesRes.map(n => ({
-      ...n.node,
-      departmentname: n.department.departmentname,
-      address: n.department.address,
-    }))
-    currentTask.value = {
-      ...item.task,
-      departmentname: item.department.departmentname,
-      nodes
-    }
+    const nodes = nodesRes.map(n => ({ ...n.node, departmentname: n.department.departmentname, address: n.department.address }))
+    currentTask.value = { ...item.task, transporterName: item.transporterName, doctorName: item.doctorName, nodes }
     taskDetailPopup.value.open()
-  } catch (error) {
-    uni.showToast({
-      title: error.message || '获取详情失败',
-      icon: 'none'
-    })
+  } catch {
+    uni.showToast({ title: '获取详情失败', icon: 'none' })
   }
 }
 const closeTaskDetail = () => {
   taskDetailPopup.value.close()
-  setTimeout(() => {
-    currentTask.value = null
-  }, 200)
-}
-const calculateDuration = (startTime, endTime) => {
-  if (!startTime || !endTime) return '-'
-  const start = typeof startTime === 'string' ? new Date(startTime).getTime() : startTime
-  const end = typeof endTime === 'string' ? new Date(endTime).getTime() : endTime
-  if (isNaN(start) || isNaN(end)) return '-'
-  const duration = end - start
-  const hours = Math.floor(duration / (1000 * 60 * 60))
-  const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60))
-  if (hours > 0) {
-    return `${hours}小时${minutes}分钟`
-  } else {
-    return `${minutes}分钟`
-  }
-}
-const getPriorityClass = priority => {
-  const map = { 0: 'priority-normal', 1: 'priority-urgent', 2: 'priority-critical' }
-  if (typeof priority === 'string') return map[parseInt(priority)] || ''
-  return map[priority] || ''
-}
-const getPriorityText = priority => {
-  const map = { 0: '普通', 1: '紧急', 2: '特急' }
-  if (typeof priority === 'string') return map[parseInt(priority)] || ''
-  return map[priority] || ''
-}
-const getStatusClass = status => {
-  const classes = {
-    DELIVERED: 'status-completed',
-    CANCELLED: 'status-cancelled'
-  }
-  return classes[status] || ''
-}
-const getStatusText = (status) => {
-  const statusMap = {
-    'NEW': '待接单',
-    'TRANSPORTING': '运送中',
-    'DELIVERED': '已完成',
-  }
-  return statusMap[status] || status
-}
-const formatTime = timestamp => {
-  if (!timestamp) return '-'
-  const date = new Date(timestamp)
-  const pad = n => n < 10 ? '0' + n : n
-  return `${date.getMonth() + 1}月${date.getDate()}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`
+  setTimeout(() => currentTask.value = null, 200)
 }
 
-onMounted(() => {
-  loadTasks()
-})
+const calculateDuration = (s, e) => {
+  if (!s || !e) return '-'
+  const diff = +new Date(e) - +new Date(s)
+  const h = Math.floor(diff / 3600000), m = Math.floor((diff % 3600000) / 60000)
+  return h > 0 ? `${h}小时${m}分钟` : `${m}分钟`
+}
+const getPriorityClass = p => ['priority-normal','priority-urgent','priority-critical'][p] || ''
+const getPriorityText  = p => ['普通','紧急','特急'][p] || ''
+const getStatusText    = s => ({ TRANSPORTING:'运送中', DELIVERED:'已完成' }[s] || s)
+const formatTime       = t => {
+  if (!t) return ''
+  const d = new Date(t), pad = n => n < 10 ? '0' + n : n
+  return `${d.getMonth()+1}月${d.getDate()}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 
-onShow(() => {
-  uni.hideTabBar({
-    animation: false
-  })
-})
+onMounted(() => loadTasks())
+onShow(() => uni.hideTabBar({ animation: false }))
 </script>
 
 <style lang="scss">
+.filter-group {
+  display: inline-block;
+  margin-right: 20rpx;
+}
+
+.additional-filters {
+  display: flex;
+  justify-content: space-between;
+  padding: 10rpx;
+}
+
+.picker {
+  font-size: 28rpx;
+  color: #666;
+  padding: 10rpx 20rpx;
+  border: 1rpx solid #ddd;
+  border-radius: 8rpx;
+  background: #f3f3f3;
+}
+
 .history-task {
   min-height: 100vh;
   background-color: #f8f8f8;
@@ -272,11 +253,12 @@ onShow(() => {
     background-color: #fff;
     padding: 20rpx 0;
     position: fixed;
-    padding-top: 88rpx; 
+    padding-top: 88rpx;
     top: 0;
     left: 0;
     right: 0;
     z-index: 100;
+
     .filter-scroll {
       white-space: nowrap;
       .filter-list {
@@ -293,9 +275,6 @@ onShow(() => {
             color: #fff;
             background-color: #007AFF;
           }
-          &:last-child {
-            margin-right: 0;
-          }
         }
       }
     }
@@ -304,20 +283,14 @@ onShow(() => {
       justify-content: space-between;
       align-items: center;
       padding: 10rpx 20rpx 10rpx 20rpx;
-      .picker {
-        font-size: 28rpx;
-        color: #666;
-        padding: 10rpx 20rpx;
-        border: 1rpx solid #ddd;
-        border-radius: 8rpx;
-        background: #f3f3f3;
-        margin-right: 10rpx;
+      uni-datetime-picker {
+        width: 100%;
       }
     }
   }
   .task-scroll {
     height: calc(100vh - 100rpx - 100rpx);
-    margin-top: 150rpx;
+    margin-top: 200rpx;
     padding: 20rpx;
   }
   .task-item {

@@ -21,24 +21,20 @@ export default {
   },
 
   // 开始任务
-  startTask(taskId, transporterId, file, qrCodeData) {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('transporterId', transporterId);
-    formData.append('qrCodeData', qrCodeData);
-    return request.post(`/task/start/${taskId}`, formData);
+  startTask(taskId, transporterId, qrCodeData) {
+    const url = `/task/start/${taskId}` +
+      `?transporterId=${transporterId}` +
+      `&qrCodeData=${encodeURIComponent(qrCodeData)}`;
+    return request.post(url);
   },
 
   // 任务交接
-  handOverTask(taskId, transporterId, departmentId, file, qrCodeData) {
-    const formData = new FormData();
-    if (file) {
-      formData.append('file', file);
-    }
-    formData.append('transporterId', transporterId);
-    formData.append('departmentId', departmentId);
-    formData.append('qrCodeData', qrCodeData);
-    return request.post(`/task/handover/${taskId}`, formData);
+  handOverTask(taskId, transporterId, departmentId, qrCodeData) {
+    const url = `/task/handover/${taskId}` +
+      `?transporterId=${transporterId}` +
+      `&qrCodeData=${encodeURIComponent(qrCodeData)}` +
+      `&departmentId=${departmentId}`;
+    return request.post(url);
   },
   
   
@@ -80,7 +76,11 @@ export default {
   
   //获取所有科室信息
   getDepartments(){
-	  return request.get(`/department/getAllDepartments`)
+	return request.get(`/department/getAllDepartments`)
   },
+  
+  getFiles(taskId){
+	return request.get(`/records/getFiles/${taskId}`);
+  }
   
 };

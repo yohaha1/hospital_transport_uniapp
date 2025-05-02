@@ -3,6 +3,12 @@
 
 export default {
 	onLaunch: function() {
+		
+		// wx.cloud.init({
+		// 	env: 'prod-9g2b9i2n9a553ec9', // 替换为你的云开发环境ID
+		// 	traceUser: true
+		// })
+
 		console.log('App Launch')
 		// 检查登录状态
 		const userInfo = uni.getStorageSync('userInfo')

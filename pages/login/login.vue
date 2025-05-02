@@ -4,7 +4,10 @@
       <image class="logo" src="/static/images/logo.png" mode="aspectFit"></image>
       <text class="title">医院运输管理系统</text>
     </view>
-    <view class="login-form">
+    <view 
+		class="login-form"
+		:style="{marginBottom: showingKeyboard ? '300' + 'px' : '0'}"
+		>
       <view class="input-group">
         <text class="label">用户名</text>
         <input 
@@ -79,9 +82,6 @@ const handleLogin = async () => {
 	  console.log("获得用户信息：", userInfo)
 	  
       if (userInfo.role === 'doctor' || userInfo.role === 'transporter') {
-        // setTimeout(() => {
-        //   uni.switchTab({ url: '/pages/common/task-pool' });
-        // }, 100);
 		uni.switchTab({ url: '/pages/common/task-pool' })
       } else {
         throw new Error('未知的用户角色')
@@ -112,7 +112,8 @@ html, body, #app {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  padding-top: 300rpx;
   overflow: hidden;
   transition: transform .5s;
   &:active { transform: scale(0.97); }

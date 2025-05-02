@@ -56,20 +56,18 @@
                 </view>
               </view>
             </view>
-            <view
-              class="action-section"
-              v-if="currentTask.status === 'ACCEPTED' || currentTask.status === 'TRANSPORTING'"
-            >
+            <!-- 操作按钮根据节点状态显示 -->
+            <view class="action-section">
               <button
                 class="action-btn primary"
-                v-if="currentTask.status === 'ACCEPTED'"
-                @click.stop="handleStartTask(currentTask)"
+                v-if="shouldShowStartButton(currentTask)"
+                @click.stop="handleStart(currentTask)"
               >
                 开始运送
               </button>
               <button
                 class="action-btn primary"
-                v-if="currentTask.status === 'TRANSPORTING'"
+                v-if="shouldShowHandoverButton(currentTask)"
                 @click.stop="handleHandover(currentTask)"
               >
                 交接确认
@@ -78,6 +76,7 @@
           </view>
         </view>
       </template>
+	  
       <view class="empty-state" v-else>
         <image src="/static/images/empty.png" mode="aspectFit"></image>
         <text>暂无进行中的任务</text>
@@ -85,31 +84,71 @@
           去接单
         </button>
       </view>
+	  
     </scroll-view>
-    <!-- 其它弹窗、tabBar等内容保持原样 -->
+	
+    <!-- 二维码弹窗 -->
     <uni-popup ref="qrCodePopup" type="center">
-      <!-- ... -->
+      <view class="qr-popup">
+        <view class="popup-header">
+          <text class="title">扫描交接二维码</text>
+          <text class="close-btn" @click="closeQrCodePopup">×</text>
+        </view>
+        <view class="popup-content">
+          <button class="scan-btn" @click="startScan">点击扫码</button>
+        </view>
+      </view>
     </uni-popup>
-    <uni-popup ref="photoPopup" type="center">
-      <!-- ... -->
+
+    <!-- 附件上传弹窗 -->
+    <uni-popup ref="filePopup" type="center">
+      <view class="file-popup">
+        <view class="popup-header">
+          <text class="title">上传交接附件</text>
+          <text class="close-btn" @click="closeFilePopup">×</text>
+        </view>
+        <view class="popup-content">
+          <view class="upload-area">
+            <view
+              class="image-item"
+              v-for="(f, i) in currentAction.files"
+              :key="i"
+            >
+              <image :src="f.url" mode="aspectFill" />
+              <text class="delete-icon" @click="removeFile(i)">×</text>
+            </view>
+            <view
+              class="upload-btn"
+              @click="chooseImage"
+              v-if="currentAction.files.length < 3"
+            >
+              <text class="iconfont icon-camera"></text>
+              <text>上传图片</text>
+            </view>
+          </view>
+          <button
+            class="photo-btn confirm"
+            @click="confirmAction"
+          >确认提交</button>
+        </view>
+      </view>
     </uni-popup>
+
+
     <tabBar :selectedIndex="1"/>
   </view>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted,toRaw } from 'vue'
 import taskApi from '@/api/task.js'
 
 const currentTasks = ref([])
-const tempPhotoPath = ref('')
 const qrCodeData = ref('')
-const actionType = ref('')
-const actionTask = ref(null)
 const isRefreshing = ref(false)
 
 const qrCodePopup = ref(null)
-const photoPopup = ref(null)
+const filePopup = ref(null)
 
 const priorityMap = {
   0: 'normal',
@@ -117,7 +156,15 @@ const priorityMap = {
   2: 'critical'
 }
 
+const currentAction = ref({
+  type: '',       // pickup | handover
+  task: null,
+  qrData: '',     // 扫码获取的数据 
+  files: [] ,
+})
+
 onMounted(() => {
+  console.log('qr:', qrCodePopup.value, 'file:', filePopup.value)
   loadCurrentTasks()
 })
 
@@ -130,8 +177,9 @@ const onRefresh = async () => {
 const loadCurrentTasks = async (refresh = false) => {
   try {
     const userInfo = uni.getStorageSync('userInfo')
-    const params = { status: 'TRANSPORTING' }
-    const res = await taskApi.getTransporterTaskRecords(userInfo.userid, params)
+    const res = await taskApi.getTransporterTaskRecords(userInfo.userid, {
+      status: 'TRANSPORTING'
+    })
     if (Array.isArray(res) && res.length > 0) {
       const tasksWithNodes = await Promise.all(res.map(async item => {
         const flatTask = {
@@ -146,6 +194,7 @@ const loadCurrentTasks = async (refresh = false) => {
         return { ...flatTask, nodes }
       }))
       currentTasks.value = tasksWithNodes
+	  console.log("tsettttttttttt",toRaw(currentTasks.value))
     } else {
       currentTasks.value = []
     }
@@ -157,99 +206,121 @@ const loadCurrentTasks = async (refresh = false) => {
   }
 }
 
+// 状态判断逻辑
+const shouldShowStartButton = (task) => {
+  return !task.nodes[0]?.handovertime
+}
+
+const shouldShowHandoverButton = (task) => {
+  return task.nodes[0]?.handovertime && task.nodes.some(n => !n.handovertime)
+}
+
 const isCurrentNode = (nodes, index) => {
   if (!nodes) return false
   const firstUnfinished = nodes.findIndex(node => !node.handovertime)
   return index === firstUnfinished
 }
 
-const handleStartTask = (task) => {
-  actionType.value = 'start'
-  actionTask.value = task
+// 操作处理逻辑
+const handleStart = async (task) => {
+  currentAction.value = {
+    type: 'pickup',
+    task,
+  }
   openQrCodePopup()
 }
 
-const handleHandover = (task) => {
-  actionType.value = 'handover'
-  actionTask.value = task
+const handleHandover = async (task) => {
+  const currentNode = task.nodes.find(n => !n.handovertime)
+  currentAction.value = {
+    type: 'handover',
+    task,
+  }
   openQrCodePopup()
 }
 
-const handleScanCode = async (e) => {
-  qrCodeData.value = e.detail.result
-  closeQrCodePopup()
-  openPhotoPopup()
-}
-
-const takePhoto = () => {
-  // #ifdef MP-WEIXIN
-  const ctx = uni.createCameraContext()
-  ctx.takePhoto({
-    quality: 'normal',
-    success: (res) => {
-      tempPhotoPath.value = res.tempImagePath
-    }
-  })
-  // #endif
-}
-
-const retakePhoto = () => {
-  tempPhotoPath.value = ''
-}
-
-const confirmPhoto = async () => {
+// 二维码扫描
+const startScan = async () => {
   try {
-    const userInfo = uni.getStorageSync('userInfo')
-    const task = actionTask.value
-    if (actionType.value === 'start') {
-      await taskApi.startTask(
-        task.taskid,
-        userInfo.userid,
-        tempPhotoPath.value,
-        qrCodeData.value
-      )
-    } else {
-      const nodes = task.nodes || []
-      const idx = nodes.findIndex(n => !n.handovertime)
-      const departmentId = idx !== -1 ? nodes[idx].departmentid : ''
-      await taskApi.handOverTask(
-        task.taskid,
-        userInfo.userid,
-        departmentId,
-        tempPhotoPath.value,
-        qrCodeData.value
-      )
-    }
-    uni.showToast({
-      title: actionType.value === 'start' ? '任务开始' : '交接成功',
-      icon: 'success'
-    })
-    await loadCurrentTasks(true)
-    tempPhotoPath.value = ''
-    qrCodeData.value = ''
-    closePhotoPopup()
+    const res = await uni.scanCode()
+    if (!res.result) throw new Error('扫码失败')
+    
+    currentAction.value.qrData = res.result
+	console.log("扫码数据：",res.result)
+    qrCodePopup.value.close()
+    filePopup.value?.open()
   } catch (error) {
-    uni.showToast({
-      title: error.message || '操作失败',
-      icon: 'none'
-    })
+    handleError('扫码失败', error)
   }
 }
 
+// 选择图片
+function chooseImage() {
+  uni.chooseImage({
+    count: 3-currentAction.value.files.length,
+    success(res) {
+      res.tempFilePaths.forEach(p=>{
+        currentAction.value.files.push({ url:p, path:p })
+      })
+    }
+  })
+}
+function removeFile(i) {
+  currentAction.value.files.splice(i,1)
+}
+
+// 确认提交：先接口再循环上传
+async function confirmAction() {
+  try {
+    const { type, task, qrData, files } = currentAction.value
+    const uid = uni.getStorageSync('userInfo').userid
+    // 调用 pickup 或 handover
+    if (type==='pickup') {
+      await taskApi.startTask(task.taskid, uid, qrData)
+    } else {
+      const dept = task.nodes.find(n=>!n.handovertime)?.departmentid||''
+      await taskApi.handOverTask(task.taskid, uid, dept, qrData)
+    }
+    // 循环上传
+    for (const f of files) {
+      await taskApi.uploadTaskFile(task.taskid, type.toUpperCase(), f.path)
+    }
+    uni.showToast({ title:'提交成功', icon:'success' })
+    closeFilePopup()
+    await loadCurrentTasks(true)
+	resetAction()
+  } catch (e) {
+    uni.showToast({ title:e.message||'提交失败', icon:'none' })
+  }
+}
+
+const handleError = (msg, error) => {
+  console.error(error)
+  uni.showToast({
+    title: error.message || msg,
+    icon: 'none'
+  })
+  resetAction()
+}
+// 辅助方法
+const resetAction = () => {
+  currentAction.value = { type: '', task: null, qrData: '', files: [] }
+  closeFilePopup()
+}
+
 const openQrCodePopup = () => {
+  currentAction.value.files = []
   qrCodePopup.value.open()
 }
 const closeQrCodePopup = () => {
   qrCodePopup.value.close()
 }
-const openPhotoPopup = () => {
-  photoPopup.value.open()
+const openFilePopup = () => {
+  currentAction.value.files = []
+  filePopup.value.open()
 }
-const closePhotoPopup = () => {
-  photoPopup.value.close()
-  setTimeout(() => {
-    tempPhotoPath.value = ''
-  }, 200)
+const closeFilePopup = () => {
+  filePopup.value.close()
 }
 
 const navigateToTaskPool = () => {
@@ -266,6 +337,7 @@ const getPriorityClass = (priority) => {
   }
   return classes[priorityMap[priority] || priority] || ''
 }
+
 const getPriorityText = (priority) => {
   const texts = {
     normal: '普通',
@@ -274,14 +346,15 @@ const getPriorityText = (priority) => {
   }
   return texts[priorityMap[priority] || priority] || ''
 }
+
 const getStatusText = (status) => {
   const texts = {
-    ACCEPTED: '待开始',
     TRANSPORTING: '运送中',
     COMPLETED: '已完成'
   }
   return texts[status] || status
 }
+
 const formatTime = (timestamp) => {
   if (!timestamp) return ''
   const date = new Date(timestamp)
@@ -556,57 +629,106 @@ const formatTime = (timestamp) => {
   }
 }
 
-/* 保持弹窗样式同前 */
-.qr-popup,
-.photo-popup {
-  width: 600rpx;
-  background-color: #fff;
-  border-radius: 20rpx;
+/* 自定义弹窗样式 */
+.qr-popup , .file-popup {
+  width: 90%;
+  max-width: 700rpx;
+  min-height: 400rpx; 
+  background: #fff;
+  border-radius: 16rpx;
   overflow: hidden;
-  .popup-header {
+  .scan-btn {
+    width: 60%;
+    height: 100rpx;
+    background: #007AFF;
+    color: white;
+    border-radius: 50rpx;
+    margin: 40rpx auto;
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 30rpx;
-    border-bottom: 2rpx solid #f0f0f0;
-    .title { font-size: 32rpx; font-weight: bold; color: #333; }
-    .close-btn { font-size: 48rpx; color: #999; padding: 0 20rpx; }
+    justify-content: center;
+    font-size: 32rpx;
   }
-  .popup-content {
-    padding: 30rpx;
-    .camera-box {
-      width: 100%;
-      height: 400rpx;
-      background-color: #000;
-      margin-bottom: 20rpx;
-      overflow: hidden;
-      camera, image { width: 100%; height: 100%; }
-    }
-    .tip-text {
-      text-align: center;
-      font-size: 28rpx;
-      color: #666;
-    }
-    .btn-group {
+  .popup-header {
       display: flex;
-      justify-content: center;
-      gap: 20rpx;
-      margin-top: 30rpx;
-      .photo-btn {
-        width: 200rpx;
-        height: 80rpx;
-        line-height: 80rpx;
-        background-color: #f5f5f5;
-        color: #666;
-        font-size: 28rpx;
-        border-radius: 40rpx;
-        &.confirm {
-          background-color: #007AFF;
-          color: #fff;
-        }
-        &:active { opacity: 0.8; }
+      justify-content: space-between;
+      align-items: center;
+      padding: 28rpx 32rpx;
+      background: #f8f8f8;
+      border-bottom: 2rpx solid #eee;
+  
+      /* 标题样式 */
+      .title {
+        font-size: 34rpx;
+        font-weight: 600;
+        color: #333;
+        letter-spacing: 1rpx;
+        max-width: 80%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
+  
+      /* 关闭按钮 */
+      .close-btn {
+        font-size: 48rpx;
+        color: #999;
+        padding: 0 20rpx;
+        transition: color 0.2s;
+        line-height: 1;
+  
+        &:active {
+          color: #666;
+        }
+      }
+	}
+	  .popup-content {
+	    padding: 40rpx 32rpx;
+		min-height: 400rpx; 
+	    .scan-btn {
+	      width: 100%;
+	      height: 88rpx;
+	      line-height: 88rpx;
+	      background: #007AFF;
+	      color: white;
+	      border-radius: 44rpx;
+	      font-size: 32rpx;
+	      transition: opacity 0.2s;
+	
+	      &:active {
+	        opacity: 0.8;
+	      }
+	    }
+	}
+}
+
+
+.file-popup .confirm{display:block;margin:40rpx auto;font-size:32rpx;width:60%;height:88rpx;line-height:88rpx;background:#007AFF;color:#fff;border-radius:44rpx;}
+.file-popup .upload-area{display:flex;flex-wrap:wrap;gap:20rpx;padding:30rpx;}
+.file-popup .image-item{position:relative;width:240rpx;height:240rpx;}
+.file-popup image{width:100%;height:100%;border-radius:8rpx;}
+.file-popup .delete-icon{position:absolute;top:-20rpx;right:-20rpx;width:40rpx;height:40rpx;line-height:40rpx;text-align:center;background:rgba(0,0,0,0.5);color:#fff;border-radius:50%;}
+.file-popup .upload-btn{width:240rpx;height:240rpx;border:2rpx dashed #ddd;border-radius:8rpx;display:flex;flex-direction:column;justify-content:center;align-items:center;color:#999;}
+.file-popup .iconfont{font-size:48rpx;margin-bottom:10rpx;}
+/* 动态节点样式 */
+.node-item {
+  &.current {
+    .node-dot {
+      animation: pulse 1.5s infinite;
+      background: #007AFF;
     }
   }
+  
+  &.completed {
+    .node-dot {
+      background: #52c41a;
+    }
+  }
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
 }
 </style>

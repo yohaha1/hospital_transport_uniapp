@@ -1,5 +1,4 @@
-// const BASE_URL = 'http://localhost:8080'; // 后端接口基础URL
-const BASE_URL = 'https://test-159055-8-1312603417.sh.run.tcloudbase.com:8080';
+const BASE_URL = 'http://localhost:8080'; // 后端接口基础URL
 
 // 请求拦截器
 const requestInterceptor = (config) => {
@@ -50,12 +49,18 @@ const responseInterceptor = (response) => {
 const request = (options) => {
   const config = requestInterceptor(options);
   return new Promise((resolve, reject) => {
-    uni.request({
-      url: `${BASE_URL}${config.url}`,
+    // wx.cloud.callContainer({
+	  uni.request({
+	  // config:{
+		 //  env:'prod-9g2b9i2n9a553ec9',
+	  // },
+      // path: config.url,
+	  url: `${BASE_URL}${config.url}`,
       method: config.method || 'GET',
       data: config.data,
       header: {
         ...config.header,
+		// 'X-WX-SERVICE': 'test',
         'Content-Type': 'application/json'
       },
       success: (res) => {
@@ -97,6 +102,12 @@ export default {
   upload(url, filePath, formData = {}) {
     return new Promise((resolve, reject) => {
 		uni.uploadFile({
+		// wx.cloud.callContainer.uploadFile({
+		  // config:{
+		  // 		  env:'prod-9g2b9i2n9a553ec9',
+		  // },
+		  // service: 'test',  
+		  // path: url,
 		  url: `${BASE_URL}${url}`,
 		  filePath,
 		  name: 'file',

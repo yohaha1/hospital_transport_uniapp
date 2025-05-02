@@ -94,7 +94,6 @@
       
       <!-- 空状态 -->
       <view class="empty-state" v-if="filteredTasks.length === 0 && !isLoading">
-        <image src="/static/images/empty.png" mode="aspectFit"></image>
         <text>暂无任务记录</text>
         <button class="create-btn" @click.stop="navigateToCreate">
           发起任务
@@ -287,11 +286,14 @@ const showTaskDetail = async (item) => {
       departmentname: n.department.departmentname,
       address: n.department.address,
     }))
+	const files = await taskApi.getFiles(item.task.taskid);
+	
     currentTask.value = {
       ...item.task,
       transporterName: item.transporterName,
       doctorName: item.doctorName,
       nodes,
+	  files
     }
     taskDetailPopup.value.open()
   } catch (error) {
@@ -362,13 +364,14 @@ onShow(() => {
 
   .filter-section {
     position: fixed;
-    top: 10;
+    top: 0;
     left: 0;
     right: 0;
-    z-index: 100;
+    z-index: 10;
     background: #fff;
 
     .filter-scroll {
+	  padding-top: 15rpx;
       white-space: nowrap;
       .filter-list {
         display: inline-flex;
@@ -409,7 +412,7 @@ onShow(() => {
 
   .task-scroll {
     flex: 1;
-    margin-top: 160rpx; /* 适配筛选栏高度 */
+    margin-top: 180rpx; /* 适配筛选栏高度 */
     margin-bottom: 110rpx; /* 适配tabBar高度 */
     overflow-y: auto;
     min-height: 0;
@@ -564,7 +567,7 @@ onShow(() => {
   border-radius: 40rpx 40rpx 0 0;
   max-height: 80vh;
   position: relative;
-  z-index: 1001;
+  z-index: 11;
   
   .detail-header {
     display: flex;

@@ -62,7 +62,8 @@
             "scope.userLocation" : {
                 "desc" : "用于地图定位"
             }
-        }
+        },
+        "cloudfunctionRoot" : "cloudfunctions/"
     },
     "mp-alipay" : {
         "usingComponents" : true
