@@ -30,5 +30,10 @@ export default {
   //获取运送员数量以及运送中的运送员数量
   getFreeTransCount() {
 	  return request.get('/user/getFreeTransCount');
-  }
+  },
+  
+  //获取通知
+  getNotifications(userId){
+  	  return request.get(`/user/getNotifications/${userId}`);
+  },
 };

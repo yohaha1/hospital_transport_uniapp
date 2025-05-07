@@ -117,7 +117,7 @@ const formData = ref({
   files: [] // {file: File, url: string}
 })
 
-const itemTypes = ['药品', '医疗器械', '化验样本', '其他']
+const itemTypes = ['药品', '医疗器械', '化验样本','标本','文件', '其他']
 const priorities = [
   { label: '普通', value: 0 },
   { label: '紧急', value: 1 },

@@ -2,7 +2,7 @@
   <view class="task-list">
     <!-- 状态筛选 -->
     <view class="filter-section">
-      <scroll-view class="filter-scroll" scroll-x>
+      <view class="filter-scroll" scroll-x>
         <view class="filter-list">
           <view 
             class="filter-item" 
@@ -14,7 +14,7 @@
             {{ item.label }}
           </view>
         </view>
-      </scroll-view>
+      </view>
       <view class="additional-filters">
         <view class="filter-group">
           <picker mode="selector" :value="itemTypeIndex" :range="itemTypeFilters" @change="handleItemTypeChange">
@@ -83,6 +83,10 @@
             <text class="label">优先级：</text>
             <text class="value">{{ getPriorityText(priorityMap[item.task.priority]) }}</text>
           </view>
+		  <view class="info-row" v-if="item.task.completion">
+		    <text class="label">用时：</text>
+		    <text class="value">{{ calculateDuration(item.task.createtime, item.task.completion) || '-' }}</text>
+		  </view>
         </view>
       </view>
       
@@ -125,7 +129,7 @@ const statusFilters = [
   { label: '运送中', value: 'TRANSPORTING' },
   { label: '已完成', value: 'DELIVERED' }
 ]
-const itemTypeFilters = ['全部', '药品', '化验样本']
+const itemTypeFilters = ['全部', '药品', '化验样本','标本','文件']
 const priorityFilters = ['全部', '普通', '紧急', '特急']
 
 const currentStatus = ref('ALL')
@@ -159,7 +163,8 @@ const getStatusClass = status => {
   const classes = {
     NEW: 'status-pending',
     TRANSPORTING: 'status-processing',
-    DELIVERED: 'status-completed'
+    DELIVERED: 'status-completed',
+	CANCELED: 'status-canceled'
   }
   return classes[status] || ''
 }
@@ -177,7 +182,8 @@ const getStatusText = status => {
   const texts = {
     NEW: '待接单',
     TRANSPORTING: '运送中',
-    DELIVERED: '已完成'
+    DELIVERED: '已完成',
+	CANCELED: '已取消',
   }
   return texts[status] || status
 }
@@ -187,6 +193,13 @@ const formatTime = ts => {
   const date = new Date(ts)
   const pad = n => n < 10 ? '0' + n : n
   return `${date.getMonth() + 1}月${date.getDate()}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+const calculateDuration = (s, e) => {
+  if (!s || !e) return '-'
+  const diff = +new Date(e) - +new Date(s)
+  const h = Math.floor(diff / 3600000), m = Math.floor((diff % 3600000) / 60000)
+  return h > 0 ? `${h}小时${m}分钟` : `${m}分钟`
 }
 
 const filteredTasks = computed(() => {
@@ -225,6 +238,17 @@ const loadTasks = async (refresh = false) => {
       endDate: dateRange.value.end
     }
     const res = await taskApi.getDepartmentTasks(userInfo.departmentid, params)
+	
+    const sortedData = res.sort((a, b) => {
+      const statusOrder = { 
+        TRANSPORTING: 0, 
+        NEW: 1, 
+        CANCELED: 2, 
+        DELIVERED: 3 
+      }
+      return statusOrder[a.task.status] - statusOrder[b.task.status]
+    })
+	console.log("getDepartmentTasks：",res)
     if (refresh) {
       tasks.value = res
     } else {
@@ -244,8 +268,6 @@ const loadTasks = async (refresh = false) => {
     }
   }
 }
-
-
 
 // 状态筛选
 const handleFilterChange = status => {
@@ -412,7 +434,7 @@ onShow(() => {
 
   .task-scroll {
     flex: 1;
-    margin-top: 180rpx; /* 适配筛选栏高度 */
+    margin-top: 210rpx; /* 适配筛选栏高度 */
     margin-bottom: 110rpx; /* 适配tabBar高度 */
     overflow-y: auto;
     min-height: 0;
@@ -421,7 +443,7 @@ onShow(() => {
   }
   
   .task-item {
-	margin-top: 50rpx;  
+	margin-top: 30rpx;  
     background-color: #fff;
     border-radius: 20rpx;
     padding: 30rpx;
@@ -477,6 +499,12 @@ onShow(() => {
           background-color: #f5f5f5;
           color: #666;
         }
+		
+		&.status-canceled {
+		  background-color: #ffedee;
+		  color: #ff0000;
+		}
+		
       }
     }
     

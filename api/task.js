@@ -81,6 +81,14 @@ export default {
   
   getFiles(taskId){
 	return request.get(`/records/getFiles/${taskId}`);
-  }
+  },
+  
+  //取消任务
+  cancelTask(taskId, reason){
+	  const encodedReason = encodeURIComponent(reason);	
+	  return request.post(`/task/cancel/${taskId}?reason=${encodedReason}`);
+  },
+  
+
   
 };

@@ -41,7 +41,7 @@
       <view 
         class="task-item" 
         v-for="item in tasks" 
-        :key="item.task.taskid"
+        :key="item.task.taskid + '-' + item.task.status"
         @click="showTaskDetail(item)"
       >
         <view class="task-header">
@@ -119,13 +119,6 @@ const freeTransCount  = ref(0)
 
 const priorityMap = { 0: 'normal', 1: 'urgent', 2: 'critical' }
 
-// —— 新增：计算各状态数量 —— 
-const pendingCount = computed(() => 
-  tasks.value.filter(t => t.task.status === 'NEW').length
-)
-const transportingCount = computed(() => 
-  tasks.value.filter(t => t.task.status === 'TRANSPORTING').length
-)
 
 onMounted(() => {
   loadTasks()
@@ -143,6 +136,13 @@ const getUserRole = () => {
   userRole.value = (userInfo.role || '').toLowerCase()
 }
 
+//任务统计
+const pendingCount = computed(() => 
+  tasks.value.filter(t => t.task.status === 'NEW').length
+)
+const transportingCount = computed(() => 
+  tasks.value.filter(t => t.task.status === 'TRANSPORTING').length
+)
 // 拉取运送员统计数据
 const fetchTransCounts = async () => {
   try {
@@ -170,14 +170,15 @@ const loadTasks = async (refresh = false) => {
   isLoading.value = true
   try {
     const tmp = await taskApi.getTasksByStatus('')
-    // 过滤掉已完成，以「大厅」展示未完成
-    const res = tmp.filter(task => task.status !== 'DELIVERED')
+    // 过滤
+    const res = tmp.filter(item => item.task.status !== 'DELIVERED' && item.task.status !== 'CANCELED');
+	// console.log("tsetttttttttt",res)
     if (refresh) {
       tasks.value = res
     } else {
       tasks.value.push(...res)
     }
-    noMore.value = res.length < pageSize.value
+	    noMore.value = res.length < pageSize.value
     page.value++
   } catch (error) {
     uni.showToast({ title: error.message || '加载失败', icon: 'none' })
@@ -239,9 +240,7 @@ const handleAcceptTask = async (task) => {
     uni.showToast({ title: '接单成功', icon: 'success' })
     await loadTasks(true)
     closeTaskDetail()
-    uni.navigateTo({
-      url: '/pages/transporter/active-task/active-task'
-    })
+
   } catch (error) {
     uni.showToast({ title: error.message || '接单失败', icon: 'none' })
   }
@@ -426,6 +425,7 @@ const getStatusClass = (status) => ({
           color: #f5222d;
         }
       }
+	
     }
     
     .task-info {
@@ -465,33 +465,35 @@ const getStatusClass = (status) => ({
         }
       }
     }
-	
-	// 状态水印
 	.status-watermark {
-		position: absolute;
-		right: 26rpx;
-		bottom: 22rpx;
-		font-size: 36rpx;    // 更大字体
-		padding: 10rpx 36rpx;
-		border-radius: 32rpx 0 20rpx 32rpx;
-		font-weight: bold;
-		opacity: 0.5;        // 更透明
-		color: #fff;
-		letter-spacing: 6rpx;
-		pointer-events: none;
-		box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
-		background: #bbb;
-		z-index: 3;
-		&.status-new {
-		  background: linear-gradient(90deg, rgba(66,197,255,0.7) 0%, rgba(7,193,96,0.7) 100%);
-		}
-		&.status-transporting {
-		  background: linear-gradient(90deg, rgba(255,179,0,0.7) 0%, rgba(255,131,77,0.7) 100%);
-		}
-		&.status-delivered {
-		  background: linear-gradient(90deg, rgba(180,180,180,0.7) 0%, rgba(124,124,124,0.7) 100%);
-		}
+	  position: absolute;
+	  right: 26rpx; bottom: 22rpx;
+	  padding: 10rpx 36rpx;
+	  border-radius: 32rpx 0 20rpx 32rpx;
+	  font-size: 36rpx;
+	  font-weight: bold;
+	  opacity: 0.5;
+	  color: #fff;
+	  letter-spacing: 6rpx;
+	  pointer-events: none;
+	  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+	  z-index: 3;
+	  background: #bbb; /* 默认灰 */
+	
+	  &.status-transporting {
+	    background: linear-gradient(90deg, rgba(255,179,0,0.7) 0%, rgba(255,131,77,0.7) 100%);
+	  }
+	  &.status-new {
+	    background: linear-gradient(90deg, rgba(66,197,255,0.7) 0%, rgba(7,193,96,0.7) 100%);
+	  }
+	  &.status-delivered {
+	    background: linear-gradient(90deg, rgba(180,180,180,0.7) 0%, rgba(124,124,124,0.7) 100%);
+	  }
+	  &.status-canceled {
+	    background: linear-gradient(90deg, rgba(255,80,80,0.7) 0%, rgba(255,40,40,0.7) 100%);
+	  }
 	}
+
   }
   
   .loading-status {
@@ -517,4 +519,5 @@ const getStatusClass = (status) => ({
     }
   }
 }
+
 </style>

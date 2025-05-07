@@ -78,7 +78,6 @@
       </template>
 	  
       <view class="empty-state" v-else>
-        <image src="/static/images/empty.png" mode="aspectFit"></image>
         <text>暂无进行中的任务</text>
         <button class="nav-btn" @click="navigateToTaskPool">
           去接单
@@ -194,7 +193,7 @@ const loadCurrentTasks = async (refresh = false) => {
         return { ...flatTask, nodes }
       }))
       currentTasks.value = tasksWithNodes
-	  console.log("tsettttttttttt",toRaw(currentTasks.value))
+	  // console.log("tsettttttttttt",toRaw(currentTasks.value))
     } else {
       currentTasks.value = []
     }
@@ -208,11 +207,13 @@ const loadCurrentTasks = async (refresh = false) => {
 
 // 状态判断逻辑
 const shouldShowStartButton = (task) => {
-  return !task.nodes[0]?.handovertime
+	if (task.status === 'CANCELED') return false
+	return !task.nodes[0]?.handovertime
 }
 
 const shouldShowHandoverButton = (task) => {
-  return task.nodes[0]?.handovertime && task.nodes.some(n => !n.handovertime)
+	if (task.status === 'CANCELED') return false
+	return task.nodes[0]?.handovertime && task.nodes.some(n => !n.handovertime)
 }
 
 const isCurrentNode = (nodes, index) => {
@@ -273,6 +274,7 @@ function removeFile(i) {
 async function confirmAction() {
   try {
     const { type, task, qrData, files } = currentAction.value
+	// console.log("testtttttttttttttt",currentAction.value)
     const uid = uni.getStorageSync('userInfo').userid
     // 调用 pickup 或 handover
     if (type==='pickup') {
@@ -350,7 +352,8 @@ const getPriorityText = (priority) => {
 const getStatusText = (status) => {
   const texts = {
     TRANSPORTING: '运送中',
-    COMPLETED: '已完成'
+    COMPLETED: '已完成',
+	CANCELED: '已取消'
   }
   return texts[status] || status
 }
@@ -631,7 +634,7 @@ const formatTime = (timestamp) => {
 
 /* 自定义弹窗样式 */
 .qr-popup , .file-popup {
-  width: 90%;
+  width: 80vw;
   max-width: 700rpx;
   min-height: 400rpx; 
   background: #fff;
@@ -684,7 +687,7 @@ const formatTime = (timestamp) => {
 	}
 	  .popup-content {
 	    padding: 40rpx 32rpx;
-		min-height: 400rpx; 
+		min-height: 200rpx; 
 	    .scan-btn {
 	      width: 100%;
 	      height: 88rpx;

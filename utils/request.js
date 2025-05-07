@@ -54,13 +54,13 @@ const request = (options) => {
 	  // config:{
 		 //  env:'prod-9g2b9i2n9a553ec9',
 	  // },
-      // path: config.url,
+   //    path: config.url,
 	  url: `${BASE_URL}${config.url}`,
       method: config.method || 'GET',
       data: config.data,
       header: {
         ...config.header,
-		// 'X-WX-SERVICE': 'test',
+		'X-WX-SERVICE': 'test',
         'Content-Type': 'application/json'
       },
       success: (res) => {
@@ -103,11 +103,11 @@ export default {
     return new Promise((resolve, reject) => {
 		uni.uploadFile({
 		// wx.cloud.callContainer.uploadFile({
-		  // config:{
-		  // 		  env:'prod-9g2b9i2n9a553ec9',
-		  // },
-		  // service: 'test',  
-		  // path: url,
+		//   config:{
+		//   		  env:'prod-9g2b9i2n9a553ec9',
+		//   },
+		//   service: 'test',  
+		//   path: url,
 		  url: `${BASE_URL}${url}`,
 		  filePath,
 		  name: 'file',

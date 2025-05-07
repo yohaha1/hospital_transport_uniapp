@@ -35,7 +35,24 @@
         <view class="info-row">
           <text class="label">任务状态：</text>
           <text class="value">{{ getStatusText(task.status) }}</text>
+		  
+		  <button 
+		    v-if="isCreator && ['NEW', 'TRANSPORTING'].includes(task.status)"
+		    class="cancel-btn"
+		    @click="cancelPopup.open()"
+		  >取消任务</button>
+		  
         </view>
+		
+		<uni-popup ref="cancelPopup" type="dialog">
+		  <uni-popup-dialog
+		    mode="input"
+		    title="取消任务"
+		    placeholder="请输入取消原因"
+		    @confirm="handleCancelTask"
+		  />
+		</uni-popup>
+		
         <view class="info-row">
           <text class="label">发起时间：</text>
           <text class="value">{{ formatTime(task.createtime) }}</text>
@@ -93,7 +110,7 @@
       </view>	  
 	  
 		<!-- 地图区域 -->
-		<view class="detail-section map-card">
+		<view class="detail-section map-card" v-if="task.status === 'TRANSPORTING'" >
 		  <view class="section-title">运送实时定位</view>
 		  <map
 			:longitude="currentLocation.longitude"
@@ -119,14 +136,22 @@
   </view>
 </template>
 <script setup>
-import { ref, watch, toRaw, onMounted, defineProps } from 'vue'
+import { ref, watch, toRaw, onMounted, computed} from 'vue'
 import { onShow } from '@dcloudio/uni-app'
+import taskApi from '@/api/task.js'
 
+const userInfo = uni.getStorageSync('userInfo')
+const isCreator = computed(() => 
+	props.task?.docid === userInfo.userid || props.task?.transid === userInfo.userid
+)
 
 const props = defineProps({
   task: Object,
   userRole: String
 })
+
+// 取消任务相关逻辑
+const cancelPopup = ref()
 
 watch(
   () => props.task,
@@ -140,6 +165,16 @@ const priorityMap = {
   0: 'normal',
   1: 'urgent',
   2: 'critical'
+}
+
+//取消任务
+const handleCancelTask = async (reason) => {
+  try {
+    await taskApi.cancelTask(props.task.taskid, reason)
+    uni.showToast({ title: '取消成功', icon: 'success' })
+  } catch (e) {
+    uni.showToast({ title: e.message || '取消失败', icon: 'none' })
+  } 
 }
 
 // 映射后端本地存储路径到可访问的静态资源 URL
@@ -176,7 +211,7 @@ const getPriorityText = (priority) => {
 }
 
 const getStatusText = (status) => {
-  const map = { TRANSPORTING: '运送中', NEW: '待接单', DELIVERED: '已完成', COMPLETED: '已完成' }
+  const map = { TRANSPORTING: '运送中', NEW: '待接单', DELIVERED: '已完成', CANCELED: '已取消' }
   return map[status] || status
 }
 const formatTime = (time) => {
@@ -267,9 +302,7 @@ watch(
   z-index: 2000; 
   display: flex;
   flex-direction: column;
-  
   position: relative;
-  // overflow: hidden;
   margin-bottom: 20px;
 
   .detail-header {
@@ -282,12 +315,12 @@ watch(
     position: sticky;
     top: 0;
     z-index: 10;
+    
     .title {
       font-size: 48rpx;
       color: #999;
       padding: 0 20rpx;
       z-index: 15;
-      cursor: pointer;
     }
     .close-btn {
       font-size: 48rpx;
@@ -295,36 +328,29 @@ watch(
       padding: 0 20rpx;
     }
   }
+
   .detail-content {
     flex: 1;
     overflow-y: auto;
     min-height: 0;
-    padding: 30rpx 0 110rpx 0;;
+    padding: 30rpx 0 110rpx 0;
+
     .detail-section {
       margin-bottom: 32rpx;
-      &.file-card {
-        background: #fff;
-        border-radius: 20rpx;
-        margin: 0 24rpx 32rpx;
-        padding: 32rpx 24rpx;
-        box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.03);
-        .section-title {
-          font-size: 30rpx;
-          font-weight: bold;
-          color: #333;
-          margin-bottom: 20rpx;
-        }
-	}
+
+      // 基本信息卡片
       &.basic-card {
         background: #fafbfc;
         border-radius: 20rpx;
         padding: 32rpx 32rpx 24rpx 32rpx;
         margin: 0 24rpx 32rpx 24rpx;
         box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.03);
+
         .header-row {
           display: flex;
           align-items: center;
           margin-bottom: 18rpx;
+
           .type-tag {
             background: #e6f7ff;
             color: #1890ff;
@@ -333,17 +359,20 @@ watch(
             border-radius: 4rpx;
             margin-right: 20rpx;
           }
+
           .item-name {
             font-size: 32rpx;
             font-weight: bold;
             color: #222;
             margin-right: 12rpx;
           }
+
           .priority-tag {
             margin-left: auto;
             padding: 4rpx 12rpx;
             border-radius: 4rpx;
             font-size: 24rpx;
+
             &.priority-normal {
               background-color: #f6ffed;
               color: #52c41a;
@@ -358,10 +387,12 @@ watch(
             }
           }
         }
+
         .info-row {
           display: flex;
           align-items: center;
           margin-bottom: 10rpx;
+
           .label {
             color: #666;
             font-size: 28rpx;
@@ -372,6 +403,32 @@ watch(
             font-size: 28rpx;
           }
         }
+		.info-row {
+		  position: relative; // 新增
+		  .cancel-btn {
+		    position: absolute;
+		    right: 0;
+		    top: 50%;
+		    transform: translateY(-50%);
+		    height: 50rpx;
+		    line-height: 50rpx;
+		    padding: 0 20rpx;
+		    font-size: 24rpx;
+		    background: #fff1f0;
+		    border: 1rpx solid #ffccc7;
+		    color: #f5222d;
+		    border-radius: 25rpx;
+		    
+		    &::after {
+		      border: none; // 去除小程序默认边框
+		    }
+		    
+		    &:active {
+		      opacity: 0.8;
+		    }
+		  }
+		}
+
         .note-row {
           display: flex;
           align-items: flex-start;
@@ -381,6 +438,7 @@ watch(
           border-radius: 10rpx;
           padding: 14rpx 18rpx;
           font-size: 26rpx;
+
           .note-icon {
             margin-right: 8rpx;
             color: #faad14;
@@ -397,23 +455,28 @@ watch(
           }
         }
       }
+
+      // 交接节点卡片
       &.node-card {
         background: #fafbfc;
         border-radius: 20rpx;
         padding: 32rpx 32rpx 16rpx 32rpx;
         margin: 0 24rpx;
         box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.03);
+
         .section-title {
           font-size: 30rpx;
           font-weight: bold;
           color: #333;
           margin-bottom: 20rpx;
         }
+
         .node-list {
           .node-item {
             display: flex;
             align-items: flex-start;
             margin-bottom: 24rpx;
+
             .node-dot {
               width: 44rpx;
               height: 44rpx;
@@ -425,10 +488,12 @@ watch(
               line-height: 44rpx;
               text-align: center;
               margin-right: 20rpx;
+
               &.completed {
                 background: #52c41a;
               }
             }
+
             .node-info {
               flex: 1;
               .node-row {
@@ -436,6 +501,7 @@ watch(
                 align-items: center;
                 font-size: 26rpx;
                 margin-bottom: 6rpx;
+
                 .department {
                   color: #333;
                   margin-right: 14rpx;
@@ -462,8 +528,74 @@ watch(
           }
         }
       }
+
+      // 附件图片卡片（新增完整样式）
+      &.file-card {
+        background: #fff;
+        border-radius: 20rpx;
+        margin: 0 24rpx 32rpx;
+        padding: 32rpx 24rpx;
+        box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.03);
+
+        .section-title {
+          font-size: 30rpx;
+          font-weight: bold;
+          color: #333;
+          margin-bottom: 20rpx;
+        }
+
+        .image-list {
+          white-space: nowrap;
+          padding: 8rpx 0;
+
+          .thumb {
+            width: 200rpx;
+            height: 200rpx;
+            border-radius: 12rpx;
+            margin-right: 20rpx;
+            background: #f5f5f5;
+            display: inline-block;
+            vertical-align: middle;
+            box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+
+            &:last-child {
+              margin-right: 0;
+            }
+
+            &:active {
+              opacity: 0.8;
+              transform: scale(0.98);
+            }
+          }
+        }
+
+        @media (prefers-color-scheme: dark) {
+          .thumb {
+            background: #333;
+            box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.3);
+          }
+        }
+      }
+
+      // 地图卡片
+      &.map-card {
+        background: #fff;
+        border-radius: 20rpx;
+        margin: 0 24rpx 32rpx 24rpx;
+        box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.03);
+        padding: 32rpx 32rpx 18rpx 32rpx;
+
+        .section-title {
+          font-size: 30rpx;
+          font-weight: bold;
+          color: #333;
+          margin-bottom: 20rpx;
+        }
+      }
     }
   }
+
   .detail-footer {
     position: sticky;
     bottom: 0;
@@ -473,6 +605,7 @@ watch(
     background: #fff;
     border-top: 2rpx solid #f0f0f0;
     z-index: 2;
+
     .accept-btn {
       width: 100%;
       height: 88rpx;
@@ -481,23 +614,23 @@ watch(
       color: #fff;
       font-size: 32rpx;
       border-radius: 44rpx;
-      &:active { opacity: 0.8; 
+      
+      &:active { 
+        opacity: 0.8; 
       }
     }
   }
 }
 
-.detail-section.map-card {
-  background: #fff;
-  border-radius: 20rpx;
-  margin: 0 24rpx 32rpx 24rpx;
-  box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.03);
-  padding: 32rpx 32rpx 18rpx 32rpx;
-  .section-title {
-    font-size: 30rpx;
-    font-weight: bold;
-    color: #333;
-    margin-bottom: 20rpx;
-  }
+// 骨架屏加载动画（可选）
+@keyframes skeleton-loading {
+  0% { background-position: 100% 50% }
+  100% { background-position: 0 50% }
+}
+
+[lazy="loading"] {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 400% 400%;
+  animation: skeleton-loading 1.5s ease infinite;
 }
 </style>

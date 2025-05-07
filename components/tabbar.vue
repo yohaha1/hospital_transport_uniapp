@@ -7,11 +7,17 @@
       :class="{active: selectedIndex === index}"
       @click="switchTab(item, index)"
     >
-      <uni-icons 
-        :type="item.icon" 
-        :color="selectedIndex === index ? selectedColor : color" 
-        size="28"
-      />
+      <view class="icon-wrapper">
+        <uni-icons 
+          :type="item.icon" 
+          :color="selectedIndex === index ? selectedColor : color" 
+          size="28"
+        />
+        <view 
+          v-if="showBadge(item)" 
+          class="tab-badge"
+        ></view>
+      </view>
       <view class="tab_text">
         {{ item.text }}
       </view>
@@ -21,17 +27,37 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 
 const props = defineProps({
   selectedIndex: {
     type: Number,
     default: 0
-  }
+  },
+
 })
 let color = ref('#666666')
 let selectedColor = ref('#007AFF')
 let list = ref([])
+const badgeState = ref(false)
+
+const updateBadge = () => {
+  badgeState.value = uni.getStorageSync('hasNewNotification')
+}
+
+let timer = ref(null)
+onMounted(() => {
+  setTabList()
+  timer = setInterval(updateBadge, 1000)
+
+})
+onUnmounted(() => {
+  clearInterval(timer)
+})
+
+const showBadge = (item) => {
+  return item.text === '我的' && badgeState.value
+}
 
 function setTabList() {
   const userInfo = uni.getStorageSync('userInfo');
@@ -57,9 +83,6 @@ function setTabList() {
   }
 }
 
-onMounted(() => {
-  setTabList()
-})
 
 const switchTab = (item, index) => {
   // 不需要设置 local currentIndex，直接切页面，页面会自动计算 selectedIndex
@@ -68,6 +91,26 @@ const switchTab = (item, index) => {
 }
 </script>
 <style scoped>
+.icon-wrapper {
+  position: relative;
+  display: inline-block;
+}
+.tab-badge {
+  position: absolute;
+  top: 0;
+  right: -12rpx;
+  width: 20rpx;
+  height: 20rpx;
+  background: #ff3b30;
+  border-radius: 50%;
+  border: 2rpx solid #fff;
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+  0% { transform: scale(0.9); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(0.9); }
+}
 .tab {
   display: flex;
   width: 100vw;
@@ -76,7 +119,7 @@ const switchTab = (item, index) => {
   position: fixed;
   bottom: 0;
   left: 0;
-  z-index: 999;
+  z-index: 998;
   box-shadow: 0 -2px 10px rgba(0,0,0,.04);
 }
 .tab-item {

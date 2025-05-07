@@ -32,7 +32,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref,onBeforeUnmount } from 'vue'
 import userApi from '@/api/user.js'
 
 const username = ref('')
@@ -54,6 +54,16 @@ function decodeJwtPayload(payload) {
     return null
   }
 }
+
+const showingKeyboard = ref(false);
+// 监听键盘高度变化
+uni.onKeyboardHeightChange(res => {
+  showingKeyboard.value = res.height > 0;
+});
+// 页面卸载时务必取消监听
+onBeforeUnmount(() => {
+  uni.offKeyboardHeightChange(/* 同上回调 */);
+});
 
 const handleLogin = async () => {
   if (!username.value || !password.value) {
@@ -80,6 +90,13 @@ const handleLogin = async () => {
       const userInfo = await userApi.getByUsername(basicUserInfo.username)
       uni.setStorageSync('userInfo', userInfo)
 	  console.log("获得用户信息：", userInfo)
+	  
+	  //获取通知
+	  const notifs = await userApi.getNotifications(userInfo.userid)
+	  const storedTime = uni.getStorageSync('notificationLastCheck')
+	  const checkTime = storedTime ? new Date(storedTime) : null
+	  const hasNew = notifs.some(n =>new Date(n.notification.sendtime) > checkTime)
+	  uni.setStorageSync('hasNewNotification', hasNew)
 	  
       if (userInfo.role === 'doctor' || userInfo.role === 'transporter') {
 		uni.switchTab({ url: '/pages/common/task-pool' })

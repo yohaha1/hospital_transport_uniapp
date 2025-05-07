@@ -95,7 +95,6 @@
       </view>
       <!-- 空状态 -->
       <view class="empty-state" v-if="filteredTasks.length === 0 && !isLoading">
-        <image src="/static/images/empty.png" mode="aspectFit"></image>
         <text>暂无历史任务记录</text>
       </view>
     </scroll-view>
@@ -122,23 +121,23 @@ const statusFilters    = [
   { label: '运送中', value: 'TRANSPORTING' },
   { label: '已完成', value: 'DELIVERED' },
 ]
-const itemTypeFilters  = ['全部', '药品', '化验样本']
-const priorityFilters  = ['全部', '普通', '紧急', '特急']
+const itemTypeFilters = ['全部', '药品', '化验样本','标本','文件']
+const priorityFilters = ['全部', '普通', '紧急', '特急']
 
-const currentStatus    = ref('ALL')
+const currentStatus = ref('ALL')
 const selectedItemType = ref('全部')
 const selectedPriority = ref('全部')
-const itemTypeIndex    = ref(0)
-const priorityIndex    = ref(0)
-const dateRange        = ref([])
+const itemTypeIndex = ref(0)
+const priorityIndex = ref(0)
+const dateRange = ref([])
 
-const tasks        = ref([])
-const page         = ref(1)
-const pageSize     = ref(10)
-const isLoading    = ref(false)
-const noMore       = ref(false)
+const tasks = ref([])
+const page = ref(1)
+const pageSize = ref(10)
+const isLoading = ref(false)
+const noMore = ref(false)
 const isRefreshing = ref(false)
-const currentTask  = ref(null)
+const currentTask = ref(null)
 const taskDetailPopup = ref(null)
 
 const filteredTasks = computed(() => {
@@ -183,12 +182,12 @@ const loadTasks = async (refresh = false) => {
   }
 }
 
-const handleFilterChange     = status => { currentStatus.value = status; loadTasks(true) }
-const handleItemTypeChange   = e      => { itemTypeIndex.value = e.detail.value; selectedItemType.value = itemTypeFilters[itemTypeIndex.value]; loadTasks(true) }
-const handlePriorityChange   = e      => { priorityIndex.value = e.detail.value; selectedPriority.value = priorityFilters[priorityIndex.value]; loadTasks(true) }
-const handleDateRangeChange  = ()     => loadTasks(true)
-const onRefresh              = async () => { isRefreshing.value = true; await loadTasks(true) }
-const loadMore               = ()     => loadTasks()
+const handleFilterChange = status => { currentStatus.value = status; loadTasks(true) }
+const handleItemTypeChange = e => { itemTypeIndex.value = e.detail.value; selectedItemType.value = itemTypeFilters[itemTypeIndex.value]; loadTasks(true) }
+const handlePriorityChange = e => { priorityIndex.value = e.detail.value; selectedPriority.value = priorityFilters[priorityIndex.value]; loadTasks(true) }
+const handleDateRangeChange = () => loadTasks(true)
+const onRefresh = async () => { isRefreshing.value = true; await loadTasks(true) }
+const loadMore = () => loadTasks()
 
 const showTaskDetail = async item => {
   try {
@@ -213,7 +212,7 @@ const calculateDuration = (s, e) => {
 }
 const getPriorityClass = p => ['priority-normal','priority-urgent','priority-critical'][p] || ''
 const getPriorityText  = p => ['普通','紧急','特急'][p] || ''
-const getStatusText    = s => ({ TRANSPORTING:'运送中', DELIVERED:'已完成' }[s] || s)
+const getStatusText    = s => ({ TRANSPORTING:'运送中', DELIVERED:'已完成', CANCELED:'已取消' }[s] || s)
 const formatTime       = t => {
   if (!t) return ''
   const d = new Date(t), pad = n => n < 10 ? '0' + n : n
@@ -253,11 +252,11 @@ onShow(() => uni.hideTabBar({ animation: false }))
     background-color: #fff;
     padding: 20rpx 0;
     position: fixed;
-    padding-top: 88rpx;
+    padding-top: 10rpx;
     top: 0;
     left: 0;
     right: 0;
-    z-index: 100;
+    z-index: 10;
 
     .filter-scroll {
       white-space: nowrap;
