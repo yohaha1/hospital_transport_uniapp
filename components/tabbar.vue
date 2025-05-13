@@ -65,15 +65,16 @@ function setTabList() {
   if (role === 'doctor') {
     list.value = [
       { pagePath: '/pages/common/task-pool', icon: 'home', text: '任务大厅' },
-      { pagePath: '/pages/doctor/task-list', icon: 'list', text: '任务列表' },
-      { pagePath: '/pages/common/user', icon: 'person', text: '我的' }
+	  { pagePath: '/pages/doctor/handover-task' , icon: 'link' , text: '任务交接'},
+      { pagePath: '/pages/common/my-tasks', icon: 'list', text: '我的任务' },
+      { pagePath: '/pages/common/user', icon: 'person', text: '个人中心' }
     ];
   } else if (role === 'transporter') {
     list.value = [
       { pagePath: '/pages/common/task-pool', icon: 'home', text: '任务大厅' },
       { pagePath: '/pages/transporter/active-task', icon: 'navigate', text: '进行中' },
-      { pagePath: '/pages/transporter/history-task', icon: 'list', text: '历史任务' },
-      { pagePath: '/pages/common/user', icon: 'person', text: '我的' }
+      { pagePath: '/pages/common/my-tasks', icon: 'list', text: '我的任务' },
+      { pagePath: '/pages/common/user', icon: 'person', text: '个人中心' }
     ];
   } else {
     list.value = [

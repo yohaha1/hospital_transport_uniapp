@@ -6,12 +6,18 @@
         "navigationBarTitleText": "登录"
       }
     },
-    {
-      "path": "pages/doctor/task-list",
-      "style": {
-        "navigationBarTitleText": "任务列表"
-      }
-    },
+    // {
+    //   "path": "pages/doctor/task-list",
+    //   "style": {
+    //     "navigationBarTitleText": "任务列表"
+    //   }
+    // },
+	{
+	  "path": "pages/common/my-tasks",
+	  "style": {
+	    "navigationBarTitleText": "我的任务"
+	  }
+	},
     {
       "path": "pages/doctor/create-task",
       "style": {
@@ -30,12 +36,12 @@
         "navigationBarTitleText": "进行中任务"
       }
     },
-    {
-      "path": "pages/transporter/history-task",
-      "style": {
-        "navigationBarTitleText": "历史任务"
-      }
-    },
+    // {
+    //   "path": "pages/transporter/history-task",
+    //   "style": {
+    //     "navigationBarTitleText": "历史任务"
+    //   }
+    // },
     {
       "path": "pages/common/user",
       "style": {
@@ -62,6 +68,13 @@
     	{
     		"navigationBarTitleText" : ""
     	}
+    },
+    {
+    	"path" : "pages/doctor/handover-task",
+    	"style" : 
+    	{
+    		"navigationBarTitleText" : "任务交接"
+    	}
     }
   ],
   "globalStyle": {
@@ -80,17 +93,20 @@
         "pagePath": "pages/common/task-pool"
       },
       {
-        "pagePath": "pages/doctor/task-list"
-      },
-      {
         "pagePath": "pages/transporter/active-task"
       },
+	  {
+	    "pagePath": "pages/doctor/handover-task"
+	  },
       {
-        "pagePath": "pages/transporter/history-task"
+        "pagePath": "pages/common/my-tasks"
       },
       {
         "pagePath": "pages/common/user"
       }
     ]
-	}
+	},
+    "usingComponents": {
+      "uni-steps": "@dcloudio/uni-ui/lib/steps/uni-steps/uni-steps"
+    }
 }

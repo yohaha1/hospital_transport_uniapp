@@ -76,7 +76,7 @@
   </view>
   
   <tabBar 
-    :selectedIndex="selectedTabIndex"
+    :selectedIndex="3"
   />
 </template>
 
@@ -117,12 +117,12 @@ const roleText = computed(() => {
 })
 
 // 选中的Tab索引
-const selectedTabIndex = computed(() => {
-  const role = userInfo.value.role
-  if (role === 'doctor') return 2 
-  if (role === 'transporter') return 3 
-  return 1 
-})
+// const selectedTabIndex = computed(() => {
+//   const role = userInfo.value.role
+//   if (role === 'doctor') return 2
+//   if (role === 'transporter') return 3 
+//   return 1 
+// })
 
 // 获取通知方法
 const fetchNotifications = async () => {
@@ -198,7 +198,9 @@ function handleLogout() {
     content: '确定要退出登录吗？',
     success: (res) => {
       if (res.confirm) {
+	    uni.$emit('logout');
         uni.clearStorageSync('userInfo')
+	    uni.clearStorage();
         uni.reLaunch({ url: '/pages/login/login' })
       }
     }

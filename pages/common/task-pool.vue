@@ -18,6 +18,32 @@
         <text class="count">{{ freeTransCount }}</text>
         <text class="label">空闲运送员</text>
       </view>
+	  <!-- 动态状态项 -->
+	  <view class="status-item" v-if="userRole === 'doctor' && userStatisticData">
+	    <text class="count">{{ userStatisticData.allNum }}</text>
+	    <text class="label">共发起任务</text>
+	  </view>
+	  <view class="status-item" v-if="userRole === 'doctor' && userStatisticData">
+	    <text class="count">{{ userStatisticData.completedNum }}</text>
+	    <text class="label">完成任务</text>
+	  </view>
+	  <view class="status-item" v-if="userRole === 'doctor' && userStatisticData">
+	    <text class="count">{{ userStatisticData.averageTime }}</text>
+	    <text class="label">平均用时(分)</text>
+	  </view>
+	
+	  <view class="status-item" v-if="userRole === 'transporter' && userStatisticData">
+	    <text class="count">{{ userStatisticData.allNum }}</text>
+	    <text class="label">共接单</text>
+	  </view>
+	  <view class="status-item" v-if="userRole === 'transporter' && userStatisticData">
+	    <text class="count">{{ userStatisticData.completedNum }}</text>
+	    <text class="label">完成任务</text>
+	  </view>
+	  <view class="status-item" v-if="userRole === 'transporter' && userStatisticData">
+	    <text class="count">{{ userStatisticData.averageTime }}</text>
+	    <text class="label">平均用时(分)</text>
+	  </view>
     </view>
 
     <!-- 加号按钮 -->
@@ -116,6 +142,7 @@ const userRole = ref('')
 const taskDetailPopup = ref(null)
 const totalTransCount = ref(0)  // 运送员总数
 const freeTransCount  = ref(0) 
+const userStatisticData = ref(null)
 
 const priorityMap = { 0: 'normal', 1: 'urgent', 2: 'critical' }
 
@@ -124,6 +151,7 @@ onMounted(() => {
   loadTasks()
   getUserRole()
   fetchTransCounts()
+  fetchUserStatisticData()
 })
 
 onShow(() => {
@@ -134,6 +162,19 @@ onShow(() => {
 const getUserRole = () => {
   const userInfo = uni.getStorageSync('userInfo')
   userRole.value = (userInfo.role || '').toLowerCase()
+}
+// 获取用户统计数据
+const fetchUserStatisticData = async () => {
+  const userInfo = uni.getStorageSync('userInfo')
+  if (!userInfo || !userInfo.userid) return
+
+  try {
+    const response = await userApi.getStatisticData(userInfo.userid)
+    userStatisticData.value = response
+	console.log("用户统计数据：", response)
+  } catch (error) {
+    console.error('获取用户统计数据失败:', error)
+  }
 }
 
 //任务统计
@@ -286,34 +327,39 @@ const getStatusClass = (status) => ({
 
   /* —— 顶部统计栏 —— */
   .status-summary {
+    flex-wrap: wrap;
     position: fixed;       /* 固定在顶部 */
-    top: 10;
+    top: 0;
     left: 0;
     right: 0;
     z-index: 9;
     display: flex;
-    justify-content: space-around;
+    justify-content: space-between;
     align-items: center;
     padding: 20rpx 20rpx 0;
     background: #fff;
     border-radius: 20rpx;
     box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
+
     .status-item {
+      width: calc(25% - 30rpx); /* 每个item占25%，减去左右间距 */
+      min-width: 120rpx;        /* 调整最小宽度以适应更多屏幕尺寸 */
       position: relative;
       display: flex;
       flex-direction: column;
       align-items: center;
-      width: 160rpx;
-      padding: 20rpx;
+      padding: 2rpx;
       border-radius: 12rpx;
+      margin: 10rpx 5rpx;          /* 添加左右间距 */
 
       overflow: hidden;
       transition: transform 0.3s ease, box-shadow 0.3s ease;
-  
+
       &:hover {
         transform: translateY(-8rpx);
         box-shadow: 0 12rpx 24rpx rgba(0, 0, 0, 0.12);
       }
+
       .count {
         font-size: 36rpx;
         font-weight: bold;
@@ -326,8 +372,8 @@ const getStatusClass = (status) => ({
       }
 
       .label {
-	    font-size: 24rpx;
-	    color: #555;
+        font-size: 24rpx;
+        color: #555;
       }
     }
   }
@@ -367,7 +413,7 @@ const getStatusClass = (status) => ({
   }
 
   .task-list {
-	padding-top: 160rpx;
+	padding-top: 260rpx;
     height: 100vh;
     
   }

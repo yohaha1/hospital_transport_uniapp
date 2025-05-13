@@ -281,7 +281,7 @@ async function confirmAction() {
       await taskApi.startTask(task.taskid, uid, qrData)
     } else {
       const dept = task.nodes.find(n=>!n.handovertime)?.departmentid||''
-      await taskApi.handOverTask(task.taskid, uid, dept, qrData)
+      await taskApi.handOverTask(task.taskid, uid, qrData)
     }
     // 循环上传
     for (const f of files) {

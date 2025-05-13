@@ -6,7 +6,7 @@
     </view>
     <view 
 		class="login-form"
-		:style="{marginBottom: showingKeyboard ? '300' + 'px' : '0'}"
+		:style="{marginBottom: '300' + 'px' }"
 		>
       <view class="input-group">
         <text class="label">用户名</text>
@@ -79,7 +79,6 @@ const handleLogin = async () => {
 	const tokenParts = token.split('.')
     if (tokenParts.length === 3) {
       const payload = decodeJwtPayload(tokenParts[1])
-	  console.log(payload)
       if (!payload) throw new Error('登录失败：无法解析用户信息')
       const basicUserInfo = {
         id: payload.id,
@@ -98,7 +97,13 @@ const handleLogin = async () => {
 	  const hasNew = notifs.some(n =>new Date(n.notification.sendtime) > checkTime)
 	  uni.setStorageSync('hasNewNotification', hasNew)
 	  
+	  
       if (userInfo.role === 'doctor' || userInfo.role === 'transporter') {
+		  // 初始化消息订阅
+		  const app = getApp()
+		  if (app.initWebSocket) {
+			app.initWebSocket()
+		  }
 		uni.switchTab({ url: '/pages/common/task-pool' })
       } else {
         throw new Error('未知的用户角色')

@@ -4,13 +4,12 @@
     <view class="filter-section">
       <view class="filter-scroll" scroll-x>
         <view class="filter-list">
-          <view 
-            class="filter-item" 
-            v-for="(item, index) in statusFilters" 
+          <view
+            class="filter-item"
+            v-for="(item, index) in statusFilters"
             :key="index"
             :class="{ active: currentStatus === item.value }"
-            @click="handleFilterChange(item.value)"
-          >
+            @click="handleFilterChange(item.value)">
             {{ item.label }}
           </view>
         </view>
@@ -33,7 +32,7 @@
       </view>
       <view class="date-filter">
         <!-- 日期范围选择器 -->
-        <uni-datetime-picker 
+        <uni-datetime-picker
           v-model="dateRange"
           type="daterange"
           start-placeholder="开始日期"
@@ -42,120 +41,125 @@
         />
       </view>
     </view>
+
     <!-- 任务列表 -->
-    <scroll-view 
-      class="task-scroll" 
-      scroll-y 
+    <scroll-view
+      class="task-scroll"
+      scroll-y
       @scrolltolower="loadMore"
       :refresher-enabled="true"
       :refresher-triggered="isRefreshing"
       @refresherrefresh="onRefresh"
     >
-      <view 
-        class="task-item" 
-        v-for="item in filteredTasks" 
+      <view
+        class="task-item"
+        v-for="item in filteredTasks"
         :key="item.task.taskid"
-        @click="showTaskDetail(item)"
-      >
+        @click="showTaskDetail(item)">
         <view class="task-header">
           <view class="left">
             <text class="type-tag">{{ item.task.itemtype }}</text>
             <text class="item-name">{{ item.task.itemname }}</text>
           </view>
-          <text class="status-tag" :class="getStatusClass(item.task.status)">
+          <text
+            v-if="isDoctor"
+            class="status-tag"
+            :class="getStatusClass(item.task.status)">
             {{ getStatusText(item.task.status) }}
           </text>
+          <view
+            v-else
+            class="priority-tag"
+            :class="getPriorityClass(item.task.priority)">
+            {{ getPriorityText(item.task.priority) }}
+          </view>
         </view>
+
         <view class="task-info">
           <view class="info-row">
-            <text class="label">创建者：</text>
-            <text class="value">{{ item.doctorName || '—' }}</text>
-          </view>			
+            <text class="label">{{ isDoctor ? '创建者：' : '发起科室：' }}</text>
+            <text class="value">
+              {{ isDoctor ? (item.doctorName || '—') : item.department.departmentname }}
+            </text>
+          </view>
           <view class="info-row">
-            <text class="label">运送员：</text>
-            <text class="value">{{ item.transporterName || '—' }}</text>
+            <text class="label">{{isDoctor? '运送员：' : '任务状态：'}}</text>
+            <text class="value">{{ isDoctor ? (item.transporterName || '—') : getStatusText(item.task.status) }}</text>
+          </view>
+          <view class="info-row" v-if="isDoctor">
+            <text class="label">优先级：</text>
+            <text class="value">{{ getPriorityText(priorityMap[item.task.priority]) }}</text>
           </view>
           <view class="info-row">
             <text class="label">发起时间：</text>
             <text class="value">{{ formatTime(item.task.createtime) }}</text>
           </view>
-          <view class="info-row">
-            <text class="label">优先级：</text>
-            <text class="value">{{ getPriorityText(priorityMap[item.task.priority]) }}</text>
+          <view class="info-row" v-if="item.task.completion">
+            <text class="label">完成时间：</text>
+            <text class="value">{{ formatTime(item.task.completion) }}</text>
           </view>
-		  <view class="info-row" v-if="item.task.completion">
-		    <text class="label">用时：</text>
-		    <text class="value">{{ calculateDuration(item.task.createtime, item.task.completion) || '-' }}</text>
-		  </view>
-		  <view class="info-row">
+          <view class="info-row" v-if="item.task.completion">
+            <text class="label">用时：</text>
+            <text class="value">{{ calculateDuration(item.task.createtime, item.task.completion) || '-' }}</text>
+          </view>
+		  <view class="info-row" v-if = "isDoctor && item.task.status === 'TRANSPORTING'" >
 		    <text class="label">节点进度：</text>
 		  </view>
         </view>
-		
-		<!-- 节点进度图 -->
-		<view class="progress-container" v-if="item.task.status === 'TRANSPORTING'">
-		  <!-- 分段轨道：每两个点之间一个 segment -->
-		  <view class="nodes-wrapper">
-		    <view
-		      v-for="(node, idx) in item.nodes"
-		      :key="idx"
-		      class="node-wrapper"
-		    >
-		      <!-- 圆点 -->
-		      <view
-		        class="dot"
-		        :class="{
-		          completed: node.handovertime,
-		          current: isCurrentNode(node, idx, item.nodes)
-		        }"
-		      ></view>
-		
-		      <!-- 段线：不在最后一个节点才渲染 -->
-		      <view
-		        v-if="idx < item.nodes.length - 1"
-		        class="segment"
-		        :class="{
-		          'segment-completed': node.handovertime,
-		          'segment-current': isCurrentNode(item.nodes[idx+1], idx+1, item.nodes)
-		        }"
-		      ></view>
-		    </view>
-		  </view>
-		
-		  <!-- 节点信息保持不变 -->
-		  <view class="info-wrapper">
-		    <view
-		      v-for="(node, idx) in item.nodes"
-		      :key="idx"
-		      class="node-info"
-		    >
-		      <text class="dept-name">{{ node.departmentname }}</text>
-		      <text v-if="node.handovertime" class="time-value">
-		        {{ formatTime(node.handovertime) }}
-		      </text>
-		      <text v-else class="estimated-time">待交接</text>
-		    </view>
-		  </view>
-		</view>
 
+        <!-- 节点进度条:  -->
+        <view
+          v-if="isDoctor && item.task.status === 'TRANSPORTING'"
+          class="progress-container">
+          <view class="nodes-wrapper">
+            <view
+              v-for="(node, idx) in item.nodes"
+              :key="idx"
+              class="node-wrapper">
+              <view
+                class="dot"
+                :class="{
+                  completed: node.handovertime,
+                  current: isCurrentNode(node, idx, item.nodes)
+                }"
+              ></view>
+              <view
+                v-if="idx < item.nodes.length - 1"
+                class="segment"
+                :class="{
+                  'segment-completed': node.handovertime,
+                  'segment-current': isCurrentNode(item.nodes[idx+1], idx+1, item.nodes)
+                }"
+              ></view>
+            </view>
+          </view>
+          <view class="info-wrapper">
+            <view
+              v-for="(node, idx) in item.nodes"
+              :key="idx"
+              class="node-info">
+              <text class="dept-name">{{ node.departmentname }}</text>
+              <text v-if="node.handovertime" class="time-value">{{ formatTime(node.handovertime) }}</text>
+              <text v-else class="estimated-time">待交接</text>
+            </view>
+          </view>
+        </view>
 
       </view>
-      
+
       <!-- 加载状态 -->
       <view class="loading-status" v-if="tasks.length > 0">
         <text v-if="isLoading">加载中...</text>
         <text v-else-if="noMore">没有更多了</text>
       </view>
-      
+
       <!-- 空状态 -->
       <view class="empty-state" v-if="filteredTasks.length === 0 && !isLoading">
         <text>暂无任务记录</text>
-        <button class="create-btn" @click.stop="navigateToCreate">
-          发起任务
-        </button>
+        <button class="create-btn" @click.stop="navigateToCreate">发起任务</button>
       </view>
     </scroll-view>
-    <!-- 任务详情弹窗 -->
+
     <uni-popup ref="taskDetailPopup" type="bottom">
       <TaskDetail
         :task="currentTask"
@@ -163,24 +167,39 @@
         @close="closeTaskDetail"
       />
     </uni-popup>
-    <tabBar :selectedIndex="1" />
+    <tabBar :selectedIndex= '2' />
   </view>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
 import taskApi from '@/api/task.js'
 import TaskDetail from '@/components/TaskDetail.vue'
 
-const statusFilters = [
+const statusFiltersDoctor = [
   { label: '全部', value: 'ALL' },
   { label: '待接单', value: 'NEW' },
   { label: '运送中', value: 'TRANSPORTING' },
   { label: '已完成', value: 'DELIVERED' }
 ]
+const statusFiltersTransporter = [
+  { label: '全部', value: 'ALL' },
+  { label: '运送中', value: 'TRANSPORTING' },
+  { label: '已完成', value: 'DELIVERED' }
+]
 const itemTypeFilters = ['全部', '药品', '化验样本','标本','文件']
 const priorityFilters = ['全部', '普通', '紧急', '特急']
+
+const userRole = ref('')
+onMounted(async () => {
+  const userInfo = uni.getStorageSync('userInfo')
+  userRole.value = (userInfo.role || '').toLowerCase()
+  await loadTasks()
+})
+const isDoctor = computed(() => userRole.value === 'doctor')
+const isTransporter = computed(() => userRole.value === 'transporter')
+
+const statusFilters = computed(() => isDoctor.value ? statusFiltersDoctor : statusFiltersTransporter)
 
 const currentStatus = ref('ALL')
 const selectedItemType = ref('全部')
@@ -196,41 +215,127 @@ const noMore = ref(false)
 const isRefreshing = ref(false)
 const currentTask = ref(null)
 const taskDetailPopup = ref(null)
-const userRole = ref('')
-
-
-// 日期范围选择
 const dateRange = ref([])
 
-// 优先级映射
-const priorityMap = {
-  0: 'normal',
-  1: 'urgent',
-  2: 'critical'
+const priorityMap = { 0: 'normal', 1: 'urgent', 2: 'critical' }
+
+const filteredTasks = computed(() => {
+  return tasks.value.filter(task => {
+    if (currentStatus.value !== 'ALL' && task.task.status !== currentStatus.value) return false
+    if (selectedItemType.value !== '全部' && task.task.itemtype !== selectedItemType.value) return false
+    if (selectedPriority.value !== '全部' && getPriorityText(priorityMap[task.task.priority]) !== selectedPriority.value) return false
+    return true
+  })
+})
+
+const loadTasks = async (refresh = false) => {
+  if (refresh) { page.value = 1; noMore.value = false }
+  if (isLoading.value || noMore.value) return
+
+  isLoading.value = true
+  try {
+    const userInfo = uni.getStorageSync('userInfo')
+    const params = {
+      status: currentStatus.value === 'ALL' ? null : currentStatus.value,
+      startDate: dateRange.value.start,
+      endDate: dateRange.value.end
+    }
+    const res = await (isDoctor.value
+      ? taskApi.getDepartmentTasks(userInfo.departmentid, params)
+      : taskApi.getTransporterTaskRecords(userInfo.userid, params))
+	  
+	console.log("tttttttttttttttttttttttt",res)
+	
+    const sortedData = res.sort((a, b) => {
+      const statusOrder = { 
+        TRANSPORTING: 0, 
+        NEW: 1, 
+        CANCELED: 2, 
+        DELIVERED: 3 
+      }
+      return statusOrder[a.task.status] - statusOrder[b.task.status]
+    })  
+	
+    const withNodes = await Promise.all(res.map(async item => {
+      if (item.task.status === 'TRANSPORTING') {
+        const nodesRes = await taskApi.getTaskNodes(item.task.taskid)
+        const nodes = nodesRes.map(n => ({
+          ...n.node,
+          departmentname: n.department.departmentname,
+          address: n.department.address,
+        }))
+        return { ...item, nodes }
+      } else {
+        return { ...item, nodes: [] }
+      }
+    }))
+    tasks.value = refresh ? withNodes : [...tasks.value, ...withNodes]
+	// console.log("tttttttttttttttttttttttt",tasks.value)
+    noMore.value = res.length < pageSize.value
+    page.value++
+  } catch (error) {
+    uni.showToast({ title: error.message || '加载失败', icon: 'none' })
+  } finally {
+    isLoading.value = false
+    if (refresh) isRefreshing.value = false
+  }
 }
 
-
-const isCurrentNode = (node, index, nodes)=> {
-	if (nodes.length === 0) return false
-	const lastCompletedIndex = nodes.findIndex(n => !n.handovertime) - 1
-	return index === lastCompletedIndex + 1
+const handleFilterChange = status => { 
+	currentStatus.value = status;
+	loadTasks(true)
 }
 
-// 获取节点状态文本
-const getNodeStatus = (node, index, nodes) => {
-	if (index === 0) return '起始点'
-	if (index === nodes.length - 1) return '目的地'
-	if (this.isCurrentNode(node, index, nodes)) return '进行中'
-	return node.handovertime ? '已完成' : '待处理'
+const handleItemTypeChange = e => { 
+	itemTypeIndex.value = e.detail.value; 
+	selectedItemType.value = itemTypeFilters[itemTypeIndex.value]; 
+	loadTasks(true) 
 }
 
-// 计算填充宽度
-const fillWidth = item => {
-	if (!item.nodes || item.nodes.length < 2) return '0%'
-	const completedNodes = item.nodes.filter(n => n.handovertime).length
-	return `${(completedNodes / (item.nodes.length - 1)) * 100}%`
+const handlePriorityChange = e => { 
+	priorityIndex.value = e.detail.value; 
+	selectedPriority.value = priorityFilters[priorityIndex.value];
+	 loadTasks(true) 
 }
 
+// 时间筛选
+const handleDateRangeChange = (e) => {
+  const [start, end] = e
+  dateRange.value.start = start
+  dateRange.value.end = end
+  // console.log("testttttttttttttttt",dateRange.value.start)
+  loadTasks(true)
+}
+
+const onRefresh = async () => { 
+	isRefreshing.value = true; 
+	await loadTasks(true) 
+}
+
+const loadMore = () => loadTasks()
+
+const showTaskDetail = async item => {
+  try {
+    const nodesRes = await taskApi.getTaskNodes(item.task.taskid)
+    const nodes = nodesRes.map(n => ({ ...n.node, departmentname: n.department.departmentname, address: n.department.address }))
+    const files = isDoctor.value ? await taskApi.getFiles(item.task.taskid) : []
+    currentTask.value = { ...item.task, transporterName: item.transporterName, doctorName: item.doctorName, nodes, files }
+    taskDetailPopup.value.open()
+  } catch {
+    uni.showToast({ title: '详情加载失败', icon: 'none' })
+  }
+}
+const closeTaskDetail = () => { 
+	taskDetailPopup.value.close(); 
+	setTimeout(() => currentTask.value = null, 200)
+}
+
+const navigateToCreate = () => uni.navigateTo({ url: '/pages/nurse/create-task/create-task' })
+
+const isCurrentNode = (node, index, nodes) => {
+  const lastCompleted = nodes.findIndex(n => !n.handovertime) - 1
+  return index === lastCompleted + 1
+}
 
 const getStatusClass = status => {
   const classes = {
@@ -240,15 +345,6 @@ const getStatusClass = status => {
 	CANCELED: 'status-canceled'
   }
   return classes[status] || ''
-}
-
-const getPriorityText = priority => {
-  const texts = {
-    normal: '普通',
-    urgent: '紧急',
-    critical: '特急'
-  }
-  return texts[priorityMap[priority] || priority] || ''
 }
 
 const getStatusText = status => {
@@ -261,186 +357,28 @@ const getStatusText = status => {
   return texts[status] || status
 }
 
-const formatTime = ts => {
-  if (!ts) return ''
-  const date = new Date(ts)
-  const pad = n => n < 10 ? '0' + n : n
-  return `${date.getMonth() + 1}月${date.getDate()}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`
+const getPriorityClass = p => ['priority-normal','priority-urgent','priority-critical'][p] || ''
+
+const getPriorityText = priority => {
+  const texts = {
+    normal: '普通',
+    urgent: '紧急',
+    critical: '特急'
+  }
+  return texts[priorityMap[priority] || priority] || ''
 }
 
+const formatTime = ts => {
+  if (!ts) return ''
+  const d = new Date(ts), pad = n => n < 10 ? '0'+n : n
+  return `${d.getMonth()+1}月${d.getDate()}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 const calculateDuration = (s, e) => {
   if (!s || !e) return '-'
   const diff = +new Date(e) - +new Date(s)
-  const h = Math.floor(diff / 3600000), m = Math.floor((diff % 3600000) / 60000)
-  return h > 0 ? `${h}小时${m}分钟` : `${m}分钟`
+  const h = Math.floor(diff/3600000), m = Math.floor((diff%3600000)/60000)
+  return h>0 ? `${h}小时${m}分钟` : `${m}分钟`
 }
-
-const filteredTasks = computed(() => {
-  return tasks.value.filter(task => {
-    const matchesStatus = currentStatus.value === 'ALL' || task.task.status === currentStatus.value
-    const matchesItemType = selectedItemType.value === '全部' || task.task.itemtype === selectedItemType.value
-    const matchesPriority = selectedPriority.value === '全部' || getPriorityText(priorityMap[task.task.priority]) === selectedPriority.value
-    return matchesStatus && matchesItemType && matchesPriority
-  })
-})
-
-// 时间筛选
-const handleDateRangeChange = (e) => {
-  const [start, end] = e
-  dateRange.value.start = start
-  dateRange.value.end = end
-  console.log("testttttttttttttttt",dateRange.value.start)
-  loadTasks(true)
-}
-
-// 加载任务列表
-const loadTasks = async (refresh = false) => {
-  if (refresh) {
-    page.value = 1
-    noMore.value = false
-  }
-  if (isLoading.value || noMore.value) return
-
-  isLoading.value = true
-  try {
-    const userInfo = uni.getStorageSync('userInfo')
-    userRole.value = (userInfo.role || '').toLowerCase()
-    const params = {
-      status: currentStatus.value === 'ALL' ? null : currentStatus.value,
-      startDate: dateRange.value.start,
-      endDate: dateRange.value.end
-    }
-    const res = await taskApi.getDepartmentTasks(userInfo.departmentid, params)
-	
-    const sortedData = res.sort((a, b) => {
-      const statusOrder = { 
-        TRANSPORTING: 0, 
-        NEW: 1, 
-        CANCELED: 2, 
-        DELIVERED: 3 
-      }
-      return statusOrder[a.task.status] - statusOrder[b.task.status]
-    })
-	
-    // 并行为 TRANSPORTING 状态的每个任务拉取节点
-    const withNodes = await Promise.all(res.map(async item => {
-      if (item.task.status === 'TRANSPORTING') {
-		const nodesRes = await taskApi.getTaskNodes(item.task.taskid)
-		const nodes = nodesRes.map(n => ({
-		  ...n.node,
-		  departmentname: n.department.departmentname,
-		  address: n.department.address,
-		}))
-        return { ...item, nodes: nodes }
-      } else {
-        return { ...item, nodes: [] }
-      }
-    }))
-	
-	console.log("getDepartmentTasks：",withNodes)
-	
-    if (refresh) {
-      tasks.value = withNodes
-    } else {
-      tasks.value = [...tasks.value, ...withNodes]
-    }
-    noMore.value = res.length < pageSize.value
-    page.value++
-  } catch (error) {
-    uni.showToast({
-      title: error.message || '加载失败',
-      icon: 'none'
-    })
-  } finally {
-    isLoading.value = false
-    if (refresh) {
-      isRefreshing.value = false
-    }
-  }
-}
-
-// 状态筛选
-const handleFilterChange = status => {
-  if (currentStatus.value === status) return
-  currentStatus.value = status
-  loadTasks(true)
-}
-
-//类型筛选
-const handleItemTypeChange = e => {
-  itemTypeIndex.value = e.detail.value
-  selectedItemType.value = itemTypeFilters[itemTypeIndex.value]
-}
-
-//优先级筛选
-const handlePriorityChange = e => {
-  priorityIndex.value = e.detail.value
-  selectedPriority.value = priorityFilters[priorityIndex.value]
-}
-
-// 下拉刷新
-const onRefresh = async () => {
-  isRefreshing.value = true
-  await loadTasks(true)
-}
-
-// 上拉加载更多
-const loadMore = () => {
-  loadTasks()
-}
-
-// 弹窗展示任务详情
-const showTaskDetail = async (item) => {
-  try {
-    const nodesRes = await taskApi.getTaskNodes(item.task.taskid)
-    const nodes = nodesRes.map(n => ({
-      ...n.node,
-      departmentname: n.department.departmentname,
-      address: n.department.address,
-    }))
-	const files = await taskApi.getFiles(item.task.taskid);
-	
-    currentTask.value = {
-      ...item.task,
-      transporterName: item.transporterName,
-      doctorName: item.doctorName,
-      nodes,
-	  files
-    }
-    taskDetailPopup.value.open()
-  } catch (error) {
-    uni.showToast({
-      title: error.message || '详情加载失败',
-      icon: 'none'
-    })
-  }
-}
-
-// 关闭详情弹窗
-const closeTaskDetail = () => {
-  taskDetailPopup.value.close()
-  setTimeout(() => {
-    currentTask.value = null
-  }, 200)
-}
-
-
-// 新建任务
-const navigateToCreate = () => {
-  uni.navigateTo({
-    url: '/pages/nurse/create-task/create-task'
-  })
-}
-
-onMounted(() => {
-  loadTasks()
-})
-
-onShow(() => {
-  uni.hideTabBar({
-    animation: false
-  })
-})
 </script>
 
 <style lang="scss" scoped>
@@ -692,6 +630,26 @@ onShow(() => {
 		}
 		
       }
+	  
+	  // 优先级标签右上角
+	  .priority-tag {
+        padding: 4rpx 12rpx;
+        border-radius: 4rpx;
+        font-size: 24rpx;
+		
+	    &.priority-normal {
+	      background-color: #f6ffed;
+	      color: #52c41a;
+	    }
+	    &.priority-urgent {
+	      background-color: #fff7e6;
+	      color: #fa8c16;
+	    }
+	    &.priority-critical {
+	      background-color: #fff1f0;
+	      color: #f5222d;
+	    }
+	  }
     }
     
     .task-info {

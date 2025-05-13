@@ -36,4 +36,10 @@ export default {
   getNotifications(userId){
   	  return request.get(`/user/getNotifications/${userId}`);
   },
+  
+  //获取用户统计数据
+  getStatisticData(userId){
+	  return request.get(`/user/getUserStatisticData/${userId}`);
+  },
+  
 };

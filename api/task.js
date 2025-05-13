@@ -29,14 +29,19 @@ export default {
   },
 
   // 任务交接
-  handOverTask(taskId, transporterId, departmentId, qrCodeData) {
+  handOverTask(taskId, transporterId, qrCodeData) {
     const url = `/task/handover/${taskId}` +
       `?transporterId=${transporterId}` +
-      `&qrCodeData=${encodeURIComponent(qrCodeData)}` +
+      `&qrCodeData=${encodeURIComponent(qrCodeData)}`;
+    return request.post(url);
+  },
+  //任务交接确认
+  handOverConfirm(taskId,transporterId,departmentId){
+    const url = `/task/handoverConfirm/${taskId}` +
+      `?transporterId=${transporterId}` +
       `&departmentId=${departmentId}`;
     return request.post(url);
   },
-  
   
   // 根据状态获取任务
   getTasksByStatus(status) {
@@ -45,6 +50,11 @@ export default {
         status: status,
       }
     });
+  },
+  
+  //获取途径某部门的任务
+  getDepartmentHandoverTasks(departmentId) {
+	  return request.get(`/records/departmentHandoverTask/${departmentId}`);
   },
   
   // 获取部门任务历史记录
